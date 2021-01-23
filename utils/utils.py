@@ -248,34 +248,49 @@ def velocity(x):
     nu=0.1
     Re=1.0/nu
     lambda_const=Re/2.0-np.sqrt(Re*Re/4.0+4.0*np.pi*np.pi)
-    n_freq=30
-    m_freq=35
+    m_freq=20
     expx1=np.reshape(np.exp(lambda_const*x[:, 0]), (x.shape[0], 1))
-    cosx1x2=np.reshape(np.cos(2.0*n_freq*np.pi*x[:, 0]+2.0*m_freq*np.pi*x[:, 1]), (x.shape[0], 1))
-    sinx1x2=np.reshape(np.sin(2.0*n_freq*np.pi*x[:, 0]+2.0*m_freq*np.pi*x[:, 1]), (x.shape[0], 1))
-    yb1=1.0-expx1*cosx1x2
-    yb2=lambda_const*expx1*sinx1x2/(2.0*m_freq*np.pi)+n_freq/m_freq*expx1*cosx1x2
+    cosx2=np.reshape(np.cos(2.0*m_freq*np.pi*x[:, 1]), (x.shape[0], 1))
+    sinx2=np.reshape(np.sin(2.0*m_freq*np.pi*x[:, 1]), (x.shape[0], 1))
+    yb1=1.0-expx1*cosx2
+    yb2=lambda_const*expx1*sinx2/(2.0*np.pi)
+    return np.concatenate((yb1, yb2), axis=1) 
+
+def RHS(x):
+    nu=0.1
+    Re=1.0/nu
+    lambda_const=Re/2.0-np.sqrt(Re*Re/4.0+4.0*np.pi*np.pi)
+    m_freq=20
+    expx1=np.reshape(np.exp(lambda_const*x[:, 0]), (x.shape[0], 1))
+    cosx2=np.reshape(np.cos(2.0*m_freq*np.pi*x[:, 1]), (x.shape[0], 1))
+    sinx2=np.reshape(np.sin(2.0*m_freq*np.pi*x[:, 1]), (x.shape[0], 1))
+    yb1=expx1*((lambda_const**2-4*np.pi**2*m_freq**2-lambda_const*Re)/Re*cosx2\
+        + expx1 *lambda_const*cosx2**2 + expx1*m_freq*lambda_const*sinx2**2)
+
+    yb2=expx1*lambda_const*(-lambda_const**2+4*m_freq**2*np.pi**2+lambda_const*Re\
+        +expx1*(-1+m_freq)*lambda_const*cosx2)*sinx2/(2*np.pi*Re)
+
     return np.concatenate((yb1, yb2), axis=1)
- 
+
 def generate_data_dirichlet(int_datasize,nb):
     n=10*int_datasize
-    x = np.array([[random.uniform(0,6) for _ in range(n)],[random.uniform(0, 3) for _ in range(n)]]).T
+    x = np.array([[random.uniform(0,2) for _ in range(n)],[random.uniform(0, 1) for _ in range(n)]]).T
     
-    centers=np.array([1.5, 1.5])
+    centers=np.array([0.7, 0.5])
     x=x[(x[:,0]-centers[0])**2+(x[:,1]-centers[1])**2>0.04]
     x_int = x[0:int_datasize]    
     
-    fdata= f(x_int)
+    fdata= RHS(x_int)
     divf=div_f(x_int)    
     divu_RHS = div_f(x_int)
     inter_target=np.concatenate((fdata, divf, divu_RHS), axis=1)
     
     # boundary values of velocity
-    xb1=np.array([[random.uniform(0,6) for _ in range(nb)],[0]*nb]).T
-    xb2=np.array([[random.uniform(0,6) for _ in range(nb)],[3]*nb]).T
+    xb1=np.array([[random.uniform(0,2) for _ in range(nb)],[0]*nb]).T
+    xb2=np.array([[random.uniform(0,2) for _ in range(nb)],[1]*nb]).T
 
-    xb3=np.array([[0]*nb, [random.uniform(0,3) for _ in range(nb)]]).T
-    xb4=np.array([[6]*nb, [random.uniform(0,3) for _ in range(nb)]]).T
+    xb3=np.array([[0]*nb, [random.uniform(0,1) for _ in range(nb)]]).T
+    xb4=np.array([[2]*nb, [random.uniform(0,1) for _ in range(nb)]]).T
         
     theta=np.array([random.uniform(0,2.0*np.pi) for _ in range(nb)])
     r = 0.2
@@ -285,6 +300,76 @@ def generate_data_dirichlet(int_datasize,nb):
     vel = velocity(xb_dirichlet)
 
     return x_int, inter_target, xb_dirichlet,vel
+
+
+class data_generator():
+    def __init__(self,m_freq,n_freq,nu):
+        self.m_freq = m_freq
+        self.n_freq = n_freq
+        self.Re=1.0/nu
+        self.lambda_const = self.Re/2.0-np.sqrt(self.Re*self.Re/4.0+4.0*np.pi*np.pi)
+
+    def velocity(self,x):
+        expx=np.exp(self.lambda_const*x[:, 0:1])
+        cosy=np.cos(2.0*self.m_freq*np.pi*x[:, 1:2])
+        siny=np.sin(2.0*self.m_freq*np.pi*x[:, 1:2])
+        cosx=np.cos(2.0*self.n_freq*np.pi*x[:, 0:1])
+        sinx=np.sin(2.0*self.n_freq*np.pi*x[:, 0:1])
+        
+        yb1=1.0-expx*cosy*sinx
+        yb2=self.lambda_const*expx*siny*cosx/(2.0*np.pi)
+        return np.concatenate((yb1, yb2), axis=1) 
+    def zero(self,x):
+        return np.zeros((len(x), 1))
+
+
+    def RHS(self,x):
+        expx=np.exp(self.lambda_const*x[:, 0:1])
+        cosy=np.cos(2.0*self.m_freq*np.pi*x[:, 1:2])
+        siny=np.sin(2.0*self.m_freq*np.pi*x[:, 1:2])
+        cosx=np.cos(2.0*self.n_freq*np.pi*x[:, 0:1])
+        sinx=np.sin(2.0*self.n_freq*np.pi*x[:, 0:1])
+        yb1 = 1/self.Re*expx*(2*self.n_freq*np.pi*(2*self.lambda_const-self.Re)*cosx*cosy\
+            +(self.lambda_const**2-4*(self.m_freq**2+self.n_freq**2)*np.pi**2-self.lambda_const*self.Re)*cosy*sinx\
+                +expx*self.Re*cosy**2*(self.lambda_const*sinx**2+self.n_freq*np.pi*np.sin(4*self.n_freq*np.pi*x[:,0:1]))\
+                    +1/2*expx*self.m_freq*self.lambda_const*self.Re*siny**2*np.sin(4*self.n_freq*np.pi*x[:,0:1]))
+        yb2 = 1/(2*np.pi*self.Re)*expx*self.lambda_const*(\
+            (-self.lambda_const**2+4*(self.m_freq**2+self.n_freq**2)*np.pi**2+self.lambda_const*self.Re)*cosx\
+                +expx*self.m_freq*self.lambda_const*self.Re*cosx**2*cosy\
+                    +2*self.n_freq*np.pi*(2*self.lambda_const-self.Re)*sinx+2*expx*self.n_freq*np.pi*self.Re*cosy*sinx**2\
+                        -1/2*expx*self.lambda_const*self.Re*cosy*np.sin(4*self.n_freq*np.pi*x[:,0:1]))*siny
+
+        return np.concatenate((yb1, yb2), axis=1)
+
+    def generate(self,int_datasize,nb):
+        n=10*int_datasize
+        x = np.array([[random.uniform(0,2) for _ in range(n)],[random.uniform(0, 1) for _ in range(n)]]).T
+
+        centers=np.array([0.7, 0.5])
+        x=x[(x[:,0]-centers[0])**2+(x[:,1]-centers[1])**2>0.04]
+        x_int = x[0:int_datasize]    
+
+        fdata= self.RHS(x_int)
+        divf=self.zero(x_int)    
+        divu_RHS = self.zero(x_int)
+        inter_target=np.concatenate((fdata, divf, divu_RHS), axis=1)
+
+        # boundary values of velocity
+        xb1=np.array([[random.uniform(0,2) for _ in range(nb)],[0]*nb]).T
+        xb2=np.array([[random.uniform(0,2) for _ in range(nb)],[1]*nb]).T
+
+        xb3=np.array([[0]*nb, [random.uniform(0,1) for _ in range(nb)]]).T
+        xb4=np.array([[2]*nb, [random.uniform(0,1) for _ in range(nb)]]).T
+
+        theta=np.array([random.uniform(0,2.0*np.pi) for _ in range(nb)])
+        r = 0.2
+        xbcirc=np.array([r*np.cos(theta), r*np.sin(theta)]).T
+
+        xb_dirichlet=np.concatenate((xb1, xb2,xb3,xb4, xbcirc), axis=0)
+        vel = self.velocity(xb_dirichlet)
+
+        return x_int, inter_target, xb_dirichlet,vel
+
 
 def genData_test(int_datasize,nb):
     n=int_datasize
