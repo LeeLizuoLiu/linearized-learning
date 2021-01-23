@@ -303,7 +303,7 @@ def generate_data_dirichlet(int_datasize,nb):
 
 
 class data_generator():
-    def __init__(self,n_freq,m_freq,nu):
+    def __init__(self,m_freq,n_freq,nu):
         self.m_freq = m_freq
         self.n_freq = n_freq
         self.Re=1.0/nu
@@ -311,13 +311,12 @@ class data_generator():
 
     def velocity(self,x):
         expx=np.exp(self.lambda_const*x[:, 0:1])
-        cosy=np.cos(2.0*self.m_freq*np.pi*x[:, 1:2])
-        siny=np.sin(2.0*self.m_freq*np.pi*x[:, 1:2])
-        cosx=np.cos(2.0*self.n_freq*np.pi*x[:, 0:1])
-        sinx=np.sin(2.0*self.n_freq*np.pi*x[:, 0:1])
+        cosxy=np.cos(2.0*self.m_freq*np.pi*x[:,0:1]+2.0*self.n_freq*np.pi*x[:, 1:2])
+        sinxy=np.sin(2.0*self.m_freq*np.pi*x[:,0:1]+2.0*self.n_freq*np.pi*x[:, 1:2])
         
-        yb1=1.0-expx*cosy*sinx
-        yb2=self.lambda_const*expx*siny*cosx/(2.0*np.pi)
+        yb1=1.0-expx*cosxy
+        yb2=self.lambda_const*expx*sinxy/(2.0*self.n_freq*np.pi)\
+            + self.m_freq/self.n_freq*expx*cosxy
         return np.concatenate((yb1, yb2), axis=1) 
     def zero(self,x):
         return np.zeros((len(x), 1))
@@ -325,22 +324,17 @@ class data_generator():
 
     def RHS(self,x):
         expx=np.exp(self.lambda_const*x[:, 0:1])
-        cosy=np.cos(2.0*self.m_freq*np.pi*x[:, 1:2])
-        siny=np.sin(2.0*self.m_freq*np.pi*x[:, 1:2])
-        cosx=np.cos(2.0*self.n_freq*np.pi*x[:, 0:1])
-        sinx=np.sin(2.0*self.n_freq*np.pi*x[:, 0:1])
-        yb1 = 1/self.Re*expx*(2*self.n_freq*np.pi*(2*self.lambda_const-self.Re)*cosx*cosy\
-            +(self.lambda_const**2-4*(self.m_freq**2+self.n_freq**2)*np.pi**2-self.lambda_const*self.Re)*cosy*sinx\
-                +expx*self.Re*cosy**2*(self.lambda_const*sinx**2+self.n_freq*np.pi*np.sin(4*self.n_freq*np.pi*x[:,0:1]))\
-                    +1/2*expx*self.m_freq*self.lambda_const*self.Re*siny**2*np.sin(4*self.n_freq*np.pi*x[:,0:1]))
-        yb2 = 1/(2*np.pi*self.Re)*expx*self.lambda_const*(\
-            (-self.lambda_const**2+4*(self.m_freq**2+self.n_freq**2)*np.pi**2+self.lambda_const*self.Re)*cosx\
-                +expx*self.m_freq*self.lambda_const*self.Re*cosx**2*cosy\
-                    +2*self.n_freq*np.pi*(2*self.lambda_const-self.Re)*sinx+2*expx*self.n_freq*np.pi*self.Re*cosy*sinx**2\
-                        -1/2*expx*self.lambda_const*self.Re*cosy*np.sin(4*self.n_freq*np.pi*x[:,0:1]))*siny
+        cosxy=np.cos(2.0*self.m_freq*np.pi*x[:,0:1]+2.0*self.n_freq*np.pi*x[:, 1:2])
+        sinxy=np.sin(2.0*self.m_freq*np.pi*x[:,0:1]+2.0*self.n_freq*np.pi*x[:, 1:2])
+        
+        yb1=1/self.Re *expx *((-4*self.m_freq**2*np.pi**2-4*self.n_freq**2*np.pi**2-self.Re*self.lambda_const+self.lambda_const**2)\
+            *cosxy+2*self.m_freq*np.pi*(self.Re-2*self.lambda_const)*sinxy)
+        yb2 = -1/(2*self.n_freq*np.pi*self.Re)*expx*(2*expx*self.m_freq*np.pi*self.Re*self.lambda_const-\
+            2*self.m_freq*np.pi*(4*self.m_freq**2*np.pi**2+4*self.n_freq**2*np.pi**2+2*self.Re*self.lambda_const-3*self.lambda_const**2)*cosxy\
+                +(4*self.m_freq**2*np.pi**2*(self.Re-3*self.lambda_const)\
+                    +self.lambda_const*(-4*self.n_freq**2*np.pi**2-self.Re*self.lambda_const+self.lambda_const**2))*sinxy)
 
         return np.concatenate((yb1, yb2), axis=1)
-
     def generate(self,int_datasize,nb):
         n=10*int_datasize
         x = np.array([[random.uniform(0,2) for _ in range(n)],[random.uniform(0, 1) for _ in range(n)]]).T
