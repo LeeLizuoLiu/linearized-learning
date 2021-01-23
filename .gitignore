@@ -1,0 +1,10 @@
+# data file #
+*.json
+*.ipynb
+*.dat
+Data/
+__pycache__/
+gradients/
+netsave/
+result_plots/
+Verification/
