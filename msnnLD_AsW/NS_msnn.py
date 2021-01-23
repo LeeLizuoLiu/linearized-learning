@@ -126,7 +126,8 @@ def ResLoss_w(x,f,divu_RHS,model_list,lamda):
     grad_w11= torch.autograd.grad(interior_w_predict[:, 0], x,  create_graph=True, grad_outputs=[torch.ones_like(interior_w_predict[:, 0])])
     grad_w12= torch.autograd.grad(interior_w_predict[:, 1], x,  create_graph=True, grad_outputs=[torch.ones_like(interior_w_predict[:, 1])])
     grad_w21= torch.autograd.grad(interior_w_predict[:, 2], x,  create_graph=True, grad_outputs=[torch.ones_like(interior_w_predict[:, 2])])
-    grad_w22= torch.autograd.grad(interior_w_predict[:, 3], x,  create_graph=True, grad_outputs=[torch.ones_like(interior_w_predict[:, 3])])
+    grad_w22= [-grad_w11[0]]
+
 
     u_grad_u1 = torch.sum(interior_u_predict*interior_w_predict[:,0:2], dim=1)
     u_grad_u2 = torch.sum(interior_u_predict*interior_w_predict[:,2:4], dim=1)
