@@ -303,7 +303,7 @@ def generate_data_dirichlet(int_datasize,nb):
 
 
 class data_generator():
-    def __init__(self,m_freq,n_freq,nu):
+    def __init__(self,n_freq,m_freq,nu):
         self.m_freq = m_freq
         self.n_freq = n_freq
         self.Re=1.0/nu

@@ -93,7 +93,7 @@ if __name__ == '__main__':
     res_temp = 1e12
     bound_temp = 1e12
     coarse_loss = 0
-    train_data = data_generator(10,15,global_nu)
+    train_data = data_generator(5,8,global_nu)
     for epoch in range(loadepochs+1, args.epochs + 1): # 循环调用train() and test()进行epoch迭代
         if  coarse_loss< 3000 and epoch%1==0 :
             x_int, inter_target, xlxb, ulub  = train_data.generate(len_inte_data,len_bound_data)
