@@ -15,8 +15,8 @@ import pdb
 import os
 import sys
 sys.path.append("..")
-from utils.utils import FullyConnectedNet,load_mesh,load_pretrained_model,evaluate,plot_contourf_vorticity,DatasetFromTxt,generate_data_dirichlet,StatGrad
-from NS_msnn import MultiScaleNet,train_p,train_u,train_w
+from utils.utils import FullyConnectedNet,load_mesh,load_pretrained_model,evaluate,plot_contourf_vorticity,DatasetFromTxt,generate_data_dirichlet,StatGrad,data_generator
+from NS_msnn import MultiScaleNet,train,global_nu
 
 
 
@@ -24,7 +24,7 @@ if __name__ == '__main__':
    # Training settings
     
     parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
-    parser.add_argument('--nbatch', type=int, default=100, metavar='N',
+    parser.add_argument('--nbatch', type=int, default=50, metavar='N',
                         help='input batch size for training (default: 500)')
     parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
                         help='input batch size for testing (default: 1000)')
@@ -55,7 +55,7 @@ if __name__ == '__main__':
     nb_head = 18
     
     model_u = MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
-    model_w = MultiScaleNet(2, 3, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
+    model_w = MultiScaleNet(2, 4, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
     model_p = MultiScaleNet(2, 1, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
     
     loadepochs=0
@@ -66,16 +66,12 @@ if __name__ == '__main__':
         load_pretrained_model(model_p, 'netsave/p_net_params_at_epochs'+str(loadepochs)+'.pkl')
         
     len_inte_data = 3200*args.nbatch 
-    len_bound_data = 640*args.nbatch
+    len_bound_data = 320*args.nbatch
     
-    paramsw = model_w.parameters()
-    optimizer1 = optim.Adam(paramsw, lr=args.lr) # 实例化求解器
- 
-    paramsu = model_u.parameters()
-    optimizer2 = optim.Adam(paramsu, lr=args.lr) # 实例化求解器
-    
-    paramsp = model_p.parameters()
-    optimizer3 = optim.Adam(paramsp, lr=args.lr) # 实例化求解器
+    paramsw = list(model_w.parameters())
+    paramsu = list(model_u.parameters())
+    paramsp = list(model_p.parameters())
+    optimizer = optim.Adam(paramsw+paramsu+paramsp, lr=args.lr) # 实例化求解器
 
     model_list=[model_u,  model_p, model_w]  
     CollectNorm = {}
@@ -97,9 +93,10 @@ if __name__ == '__main__':
     res_temp = 1e12
     bound_temp = 1e12
     coarse_loss = 0
+    train_data = data_generator(10,15,global_nu)
     for epoch in range(loadepochs+1, args.epochs + 1): # 循环调用train() and test()进行epoch迭代
         if  coarse_loss< 3000 and epoch%1==0 :
-            x_int, inter_target, xlxb, ulub  = generate_data_dirichlet(len_inte_data,len_bound_data)
+            x_int, inter_target, xlxb, ulub  = train_data.generate(len_inte_data,len_bound_data)
             interior_training_dataset=torch.utils.data.TensorDataset(torch.Tensor(x_int).to(device),torch.Tensor(inter_target).to(device))
             interior_training_data_loader = torch.utils.data.DataLoader(interior_training_dataset, 
                                                                         batch_size=int(len_inte_data/args.nbatch),
@@ -112,28 +109,18 @@ if __name__ == '__main__':
                                                                                 shuffle=True, 
                                                                                 **kwargs)
 
-
-        loss_u=train_u(args, model_list, device, interior_training_data_loader, 
+        loss[epoch-loadepochs-1],lamda_temp, bound, res, coarse_loss=train(args, model_list, device, interior_training_data_loader, 
                                                    dirichlet_boundary_training_data_loader, 
-                                                   optimizer2, epoch, lamda,beta)
-        if loss_u<150:
-            loss_w=train_w(args, model_list, device, interior_training_data_loader, 
-                                                   optimizer1, epoch, lamda)
-            loss_p=train_p(args, model_list, device, interior_training_data_loader, 
-                                                   optimizer3, epoch, lamda,beta)
-
-
-
-        if epoch%30==0:
-            args.nbatch = args.nbatch+10 
-            len_inte_data = 3200*args.nbatch 
-            len_bound_data = 320*args.nbatch
+                                                   coarse_data_loader,
+                                                   optimizer, epoch, lamda,beta,gamma,CollectNorm)
 
         if epoch%20==0:
             torch.save(model_u.state_dict(), 'netsave/u_net_params_at_epochs'+str(epoch)+'.pkl') 
             torch.save(model_p.state_dict(), 'netsave/p_net_params_at_epochs'+str(epoch)+'.pkl') 
             torch.save(model_w.state_dict(), 'netsave/w_net_params_at_epochs'+str(epoch)+'.pkl')  
             plot_contourf_vorticity(model_w,model_u, epoch,points, elements,XY)
+            evaluate(model_u,device,epoch)
+        lamda = lamda_temp
         if epoch%1000000==0:
                 gamma = gamma/1.03
 #            if bound<= bound_temp* 0.95:
