@@ -55,7 +55,7 @@ if __name__ == '__main__':
     nb_head = 18
     
     model_u = MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
-    model_w = MultiScaleNet(2, 4, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
+    model_w = MultiScaleNet(2, 3, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
     model_p = MultiScaleNet(2, 1, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
     
     loadepochs=0
@@ -93,7 +93,7 @@ if __name__ == '__main__':
     res_temp = 1e12
     bound_temp = 1e12
     coarse_loss = 0
-    train_data = data_generator(5,8,global_nu)
+    train_data = data_generator(10,15,global_nu)
     for epoch in range(loadepochs+1, args.epochs + 1): # 循环调用train() and test()进行epoch迭代
         if  coarse_loss< 3000 and epoch%1==0 :
             x_int, inter_target, xlxb, ulub  = train_data.generate(len_inte_data,len_bound_data)
@@ -119,7 +119,6 @@ if __name__ == '__main__':
             torch.save(model_p.state_dict(), 'netsave/p_net_params_at_epochs'+str(epoch)+'.pkl') 
             torch.save(model_w.state_dict(), 'netsave/w_net_params_at_epochs'+str(epoch)+'.pkl')  
             plot_contourf_vorticity(model_w,model_u, epoch,points, elements,XY)
-            evaluate(model_u,device,epoch)
         lamda = lamda_temp
         if epoch%1000000==0:
                 gamma = gamma/1.03

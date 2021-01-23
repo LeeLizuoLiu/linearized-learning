@@ -90,7 +90,8 @@ def ResLoss_w(x,f,divu_RHS,model_list,lamda):
     #  the size of interior_w_predict is (batch_size, 4)
     interior_u_predict = model_list[0](x) 
     interior_p_predict = model_list[1](x)
-    interior_w_predict = model_list[2](x) 
+    interior_w_pred = model_list[2](x) 
+    interior_w_predict = torch.cat((interior_w_pred,-interior_w_pred[:,0:1]),1)  
     
     # calculate the derivatives:
     # the size of grad is (batch_size, 2) and each row is the (\partial_x u, \partial_y u)
@@ -102,12 +103,11 @@ def ResLoss_w(x,f,divu_RHS,model_list,lamda):
     grad_w11= torch.autograd.grad(interior_w_predict[:, 0], x,  create_graph=True, grad_outputs=[torch.ones_like(interior_w_predict[:, 0])])
     grad_w12= torch.autograd.grad(interior_w_predict[:, 1], x,  create_graph=True, grad_outputs=[torch.ones_like(interior_w_predict[:, 1])])
     grad_w21= torch.autograd.grad(interior_w_predict[:, 2], x,  create_graph=True, grad_outputs=[torch.ones_like(interior_w_predict[:, 2])])
-    grad_w22= torch.autograd.grad(interior_w_predict[:, 3], x,  create_graph=True, grad_outputs=[torch.ones_like(interior_w_predict[:, 3])])
+    grad_w22= [-grad_w11[0]]
 
     u_grad_u1 = torch.sum(interior_u_predict*interior_w_predict[:,0:2], dim=1)
     u_grad_u2 = torch.sum(interior_u_predict*interior_w_predict[:,2:4], dim=1)
 
-    divu =interior_w_predict[:,0]+interior_w_predict[:,3]
     divw1=grad_w11[0][:, 0]+grad_w12[0][:, 1]
     divw2=grad_w21[0][:, 0]+grad_w22[0][:, 1]
     
@@ -116,8 +116,7 @@ def ResLoss_w(x,f,divu_RHS,model_list,lamda):
     loss1 = loss_function(u_grad_u1-global_nu*divw1+grad_p[0][:,0], f[:,0])
     loss2 = loss_function(u_grad_u2-global_nu*divw2+grad_p[0][:,1], f[:,1])
     loss3 = loss_function(grad_u1[0], interior_w_predict[:,0:2])+loss_function(grad_u2[0], interior_w_predict[:, 2:4])
-    loss5 = loss_function(divu, divu_RHS)
-    res = loss5 + loss1 + loss2 +1*loss3
+    res = loss1 + loss2 +1*loss3
    
     return res, loss3
     
@@ -127,43 +126,27 @@ def ResLoss_u(x,bdry_x,f,divu_RHS,bdry_velocity,beta,lamda,model_list,epoch):
     #  the size of interior_p_predict is (batch_size, 1)
     #  the size of interior_w_predict is (batch_size, 4)
     interior_u_predict = model_list[0](x) 
-    interior_p_predict = model_list[1](x)
-    interior_w_predict = model_list[2](x) 
     bdry_u_predict     = model_list[0](bdry_x)
     # calculate the derivatives:
     # the size of grad is (batch_size, 2) and each row is the (\partial_x u, \partial_y u)
     grad_u1 = torch.autograd.grad(interior_u_predict[:, 0], x,  create_graph=True, grad_outputs=[torch.ones_like(interior_u_predict[:, 0])])
     grad_u2 = torch.autograd.grad(interior_u_predict[:, 1], x,  create_graph=True, grad_outputs=[torch.ones_like(interior_u_predict[:, 1])])
-    grad_p = torch.autograd.grad(interior_p_predict, x,  create_graph=True, grad_outputs=[torch.ones_like(interior_p_predict)])
 
 #    grad_w11= torch.autograd.grad(grad_u1[0][:, 0], x,  create_graph=True, grad_outputs=[torch.ones_like(grad_u1[0][:, 0])])
 #    grad_w12= torch.autograd.grad(grad_u1[0][:, 1], x,  create_graph=True, grad_outputs=[torch.ones_like(grad_u1[0][:, 1])])
 #    grad_w21= torch.autograd.grad(grad_u2[0][:, 0], x,  create_graph=True, grad_outputs=[torch.ones_like(grad_u2[0][:, 0])])
 #    grad_w22= torch.autograd.grad(grad_u2[0][:, 1], x,  create_graph=True, grad_outputs=[torch.ones_like(grad_u2[0][:, 1])])
- 
-    grad_w11= torch.autograd.grad(interior_w_predict[:, 0], x,  create_graph=True, grad_outputs=[torch.ones_like(interior_w_predict[:, 0])])
-    grad_w12= torch.autograd.grad(interior_w_predict[:, 1], x,  create_graph=True, grad_outputs=[torch.ones_like(interior_w_predict[:, 1])])
-    grad_w21= torch.autograd.grad(interior_w_predict[:, 2], x,  create_graph=True, grad_outputs=[torch.ones_like(interior_w_predict[:, 2])])
-    grad_w22= torch.autograd.grad(interior_w_predict[:, 3], x,  create_graph=True, grad_outputs=[torch.ones_like(interior_w_predict[:, 3])])
-
-    u_grad_u1 = torch.sum(interior_u_predict*interior_w_predict[:,0:2], dim=1)
-    u_grad_u2 = torch.sum(interior_u_predict*interior_w_predict[:,2:4], dim=1)
 
     divu = grad_u1[0][:,0]+grad_u2[0][:,1]
-    divw1=grad_w11[0][:, 0]+grad_w12[0][:, 1]
-    divw2=grad_w21[0][:, 0]+grad_w22[0][:, 1]
     
     loss_function = nn.MSELoss()
     
-    loss1 = loss_function(u_grad_u1-global_nu*divw1+grad_p[0][:,0], f[:,0])
-    loss2 = loss_function(u_grad_u2-global_nu*divw2+grad_p[0][:,1], f[:,1])
-    loss3 = loss_function(grad_u1[0], interior_w_predict[:,0:2])+loss_function(grad_u2[0], interior_w_predict[:, 2:4])
     loss4 = loss_function(bdry_u_predict, bdry_velocity[:, 0:2])
     loss5 = loss_function(divu, divu_RHS)
-    res =  loss1 + loss2 + loss5
+    res =  loss5
     bound = (loss4)              # 调用损失函数计算损失
     
-    loss_u = beta * res + lamda * bound  + 1*loss3
+    loss_u = beta * res + lamda * bound 
     return loss_u
 
 def ResLoss_p(x,f,divu_RHS, beta,lamda,model_list):
@@ -171,33 +154,16 @@ def ResLoss_p(x,f,divu_RHS, beta,lamda,model_list):
     #  the size of interior_predict is (batch_size, 2)
     #  the size of interior_p_predict is (batch_size, 1)
     #  the size of interior_w_predict is (batch_size, 4)
-    interior_u_predict = model_list[0](x) 
     interior_p_predict = model_list[1](x)
-    interior_w_predict = model_list[2](x) 
-    
     # calculate the derivatives:
     # the size of grad is (batch_size, 2) and each row is the (\partial_x u, \partial_y u)
     grad_p = torch.autograd.grad(interior_p_predict, x,  create_graph=True, grad_outputs=[torch.ones_like(interior_p_predict)])
     pxx = torch.autograd.grad(grad_p[0][:, 0], x,  create_graph=True, grad_outputs=[torch.ones_like(grad_p[0][:, 0])])
     pyy = torch.autograd.grad(grad_p[0][:, 1], x,  create_graph=True, grad_outputs=[torch.ones_like(grad_p[0][:, 1])])
- 
-    grad_w11= torch.autograd.grad(interior_w_predict[:, 0], x,  create_graph=True, grad_outputs=[torch.ones_like(interior_w_predict[:, 0])])
-    grad_w12= torch.autograd.grad(interior_w_predict[:, 1], x,  create_graph=True, grad_outputs=[torch.ones_like(interior_w_predict[:, 1])])
-    grad_w21= torch.autograd.grad(interior_w_predict[:, 2], x,  create_graph=True, grad_outputs=[torch.ones_like(interior_w_predict[:, 2])])
-    grad_w22= torch.autograd.grad(interior_w_predict[:, 3], x,  create_graph=True, grad_outputs=[torch.ones_like(interior_w_predict[:, 3])])
 
-       
-    u_grad_u1 = torch.sum(interior_u_predict*interior_w_predict[:, 0:2], dim=1)
-    u_grad_u2 = torch.sum(interior_u_predict*interior_w_predict[:, 2:4], dim=1)
-
-    divw1=grad_w11[0][:, 0]+grad_w12[0][:, 1]
-    divw2=grad_w21[0][:, 0]+grad_w22[0][:, 1]
     div_grad_p =  pxx[0][:, 0]+pyy[0][:, 1]   
     loss_function = nn.MSELoss()
-    
-    loss1 = loss_function(u_grad_u1-global_nu*divw1+grad_p[0][:,0], f[:,0])
-    loss2 = loss_function(u_grad_u2-global_nu*divw2+grad_p[0][:,1], f[:,1])
-    res = loss1 + loss2 
-    loss_p = beta * res  #+ gamma*loss3
+    loss3 = loss_function(div_grad_p,divu_RHS)
+    loss_p = loss3  #+ gamma*loss3
     return loss_p
 
