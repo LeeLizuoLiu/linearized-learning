@@ -320,7 +320,8 @@ class data_generator():
         return np.concatenate((yb1, yb2), axis=1) 
     def zero(self,x):
         return np.zeros((len(x), 1))
-
+    def divf_func(self,x):
+        return -2*np.exp(2*self.lambda_const*x[:,0:1])*self.lambda_const**2
 
     def RHS(self,x):
         expx=np.exp(self.lambda_const*x[:, 0:1])
