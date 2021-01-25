@@ -87,7 +87,7 @@ if __name__ == '__main__':
     XY=Variable(torch.tensor(points),requires_grad=True).to(device)
     
     loss=np.array([0.0]*(args.epochs-loadepochs))
-    lamda = 1000. 
+    lamda = 10000. 
     beta = 1 
     gamma = 0.
     res_temp = 1e12
@@ -95,7 +95,7 @@ if __name__ == '__main__':
     coarse_loss = 0
     train_data = data_generator(10,15,global_nu)
     for epoch in range(loadepochs+1, args.epochs + 1): # 循环调用train() and test()进行epoch迭代
-        if  coarse_loss< 3000 and epoch%1==0 :
+        if  coarse_loss< 3000 and epoch%5==1 :
             x_int, inter_target, xlxb, ulub  = train_data.generate(len_inte_data,len_bound_data)
             interior_training_dataset=torch.utils.data.TensorDataset(torch.Tensor(x_int).to(device),torch.Tensor(inter_target).to(device))
             interior_training_data_loader = torch.utils.data.DataLoader(interior_training_dataset, 

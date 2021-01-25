@@ -61,38 +61,31 @@ def train(args, model_list, device, interior_train_loader,
         bdrydata, bdrytarget=bdryiter.next()
         bdry_x       =Variable(  bdrydata, requires_grad=False)
         bdry_velocity=Variable(bdrytarget, requires_grad=False)
-
-        loss_u = ResLoss_u(x,bdry_x,f,divu_RHS,bdry_velocity,beta,lamda,model_list,epoch)
-        loss_w,loss3 = ResLoss_w(x,f,divu_RHS,model_list,lamda)
-        loss_p = ResLoss_p(x,f,divu_RHS,beta,lamda,model_list)
-        loss_total = loss_u+loss_w+loss_p
+        loss_total,res,bound = ResLoss_upw(x,bdry_x,f,divu_RHS,divf,bdry_velocity,beta,lamda,model_list,epoch)
         optimizer.zero_grad()
         loss_total.backward()
         optimizer.step()
         lamda_temp = lamda
 
         if batch_idx % args.log_interval == 0: # 根据设置的显式间隔输出训练日志
-            print('Train Epoch: {:>5d}  [{:>6d}/{} ({:3.0f}%)] Loss of w: {:.6f} Loss of u: {:.6f} Loss of p: {:.6f}'.format(
+            print('Train Epoch: {:>5d}  [{:>6d}/{} ({:3.0f}%)] Loss of res: {:.6f} Loss of bound: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(interior_train_loader.dataset),
-                100. * batch_idx / len(interior_train_loader), loss_w.item(),loss_u.item(),loss_p.item()))
+                100. * batch_idx / len(interior_train_loader), res.item(),bound.item()))
         if batch_idx==0:
-            retloss=loss_w
+            retloss=loss_total
             retbound = 0
             retres = 0
             retcoar_loss = 0
 
     return retloss, lamda_temp, retbound, retres, retcoar_loss
-
-def ResLoss_w(x,f,divu_RHS,model_list,lamda):
-    #  the size of x is (batch_size, 2)  
-    #  the size of interior_predict is (batch_size, 2)
-    #  the size of interior_p_predict is (batch_size, 1)
-    #  the size of interior_w_predict is (batch_size, 4)
+def ResLoss_upw(x,bdry_x,f,divu_RHS,divf,bdry_velocity,beta,lamda,model_list,epoch):
+    
     interior_u_predict = model_list[0](x) 
     interior_p_predict = model_list[1](x)
     interior_w_pred = model_list[2](x) 
     interior_w_predict = torch.cat((interior_w_pred,-interior_w_pred[:,0:1]),1)  
-    
+    bdry_u_predict     = model_list[0](bdry_x)
+ 
     # calculate the derivatives:
     # the size of grad is (batch_size, 2) and each row is the (\partial_x u, \partial_y u)
     grad_u1 = torch.autograd.grad(interior_u_predict[:, 0], x,  create_graph=True, grad_outputs=[torch.ones_like(interior_u_predict[:, 0])])
@@ -108,62 +101,28 @@ def ResLoss_w(x,f,divu_RHS,model_list,lamda):
     u_grad_u1 = torch.sum(interior_u_predict*interior_w_predict[:,0:2], dim=1)
     u_grad_u2 = torch.sum(interior_u_predict*interior_w_predict[:,2:4], dim=1)
 
+    pxx = torch.autograd.grad(grad_p[0][:, 0], x,  create_graph=True, grad_outputs=[torch.ones_like(grad_p[0][:, 0])])
+    pyy = torch.autograd.grad(grad_p[0][:, 1], x,  create_graph=True, grad_outputs=[torch.ones_like(grad_p[0][:, 1])])
+
+    divu = grad_u1[0][:,0]+grad_u2[0][:,1]
+ 
     divw1=grad_w11[0][:, 0]+grad_w12[0][:, 1]
     divw2=grad_w21[0][:, 0]+grad_w22[0][:, 1]
-    
+
+    div_grad_p =  pxx[0][:, 0]+pyy[0][:, 1]+2*(interior_w_predict[:,0]**2+interior_w_predict[:,1]*interior_w_predict[:,2])
+ 
     loss_function = nn.MSELoss()
     
     loss1 = loss_function(u_grad_u1-global_nu*divw1+grad_p[0][:,0], f[:,0])
     loss2 = loss_function(u_grad_u2-global_nu*divw2+grad_p[0][:,1], f[:,1])
     loss3 = loss_function(grad_u1[0], interior_w_predict[:,0:2])+loss_function(grad_u2[0], interior_w_predict[:, 2:4])
-    res = loss1 + loss2 +1*loss3
-   
-    return res, loss3
-    
-def ResLoss_u(x,bdry_x,f,divu_RHS,bdry_velocity,beta,lamda,model_list,epoch):
-        #  the size of x is (batch_size, 2)  
-    #  the size of interior_predict is (batch_size, 2)
-    #  the size of interior_p_predict is (batch_size, 1)
-    #  the size of interior_w_predict is (batch_size, 4)
-    interior_u_predict = model_list[0](x) 
-    bdry_u_predict     = model_list[0](bdry_x)
-    # calculate the derivatives:
-    # the size of grad is (batch_size, 2) and each row is the (\partial_x u, \partial_y u)
-    grad_u1 = torch.autograd.grad(interior_u_predict[:, 0], x,  create_graph=True, grad_outputs=[torch.ones_like(interior_u_predict[:, 0])])
-    grad_u2 = torch.autograd.grad(interior_u_predict[:, 1], x,  create_graph=True, grad_outputs=[torch.ones_like(interior_u_predict[:, 1])])
-
-#    grad_w11= torch.autograd.grad(grad_u1[0][:, 0], x,  create_graph=True, grad_outputs=[torch.ones_like(grad_u1[0][:, 0])])
-#    grad_w12= torch.autograd.grad(grad_u1[0][:, 1], x,  create_graph=True, grad_outputs=[torch.ones_like(grad_u1[0][:, 1])])
-#    grad_w21= torch.autograd.grad(grad_u2[0][:, 0], x,  create_graph=True, grad_outputs=[torch.ones_like(grad_u2[0][:, 0])])
-#    grad_w22= torch.autograd.grad(grad_u2[0][:, 1], x,  create_graph=True, grad_outputs=[torch.ones_like(grad_u2[0][:, 1])])
-
-    divu = grad_u1[0][:,0]+grad_u2[0][:,1]
-    
-    loss_function = nn.MSELoss()
-    
     loss4 = loss_function(bdry_u_predict, bdry_velocity[:, 0:2])
     loss5 = loss_function(divu, divu_RHS)
-    res =  loss5
-    bound = (loss4)              # 调用损失函数计算损失
+    loss6 = loss_function(div_grad_p,divf)
     
-    loss_u = beta * res + lamda * bound 
-    return loss_u
-
-def ResLoss_p(x,f,divu_RHS, beta,lamda,model_list):
-        #  the size of x is (batch_size, 2)  
-    #  the size of interior_predict is (batch_size, 2)
-    #  the size of interior_p_predict is (batch_size, 1)
-    #  the size of interior_w_predict is (batch_size, 4)
-    interior_p_predict = model_list[1](x)
-    # calculate the derivatives:
-    # the size of grad is (batch_size, 2) and each row is the (\partial_x u, \partial_y u)
-    grad_p = torch.autograd.grad(interior_p_predict, x,  create_graph=True, grad_outputs=[torch.ones_like(interior_p_predict)])
-    pxx = torch.autograd.grad(grad_p[0][:, 0], x,  create_graph=True, grad_outputs=[torch.ones_like(grad_p[0][:, 0])])
-    pyy = torch.autograd.grad(grad_p[0][:, 1], x,  create_graph=True, grad_outputs=[torch.ones_like(grad_p[0][:, 1])])
-
-    div_grad_p =  pxx[0][:, 0]+pyy[0][:, 1]   
-    loss_function = nn.MSELoss()
-    loss3 = loss_function(div_grad_p,divu_RHS)
-    loss_p = loss3  #+ gamma*loss3
-    return loss_p
+    res = loss1 + loss2 + loss3 + loss5 + loss6
+    bound = (loss4)              # 调用损失函数计算损失
+    loss = beta * res + lamda * bound 
+    
+    return loss,res,bound
 
