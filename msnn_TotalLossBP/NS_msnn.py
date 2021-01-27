@@ -109,7 +109,8 @@ def ResLoss_upw(x,bdry_x,f,divu_RHS,divf,bdry_velocity,beta,lamda,model_list,epo
     divw1=grad_w11[0][:, 0]+grad_w12[0][:, 1]
     divw2=grad_w21[0][:, 0]+grad_w22[0][:, 1]
 
-    div_grad_p =  pxx[0][:, 0]+pyy[0][:, 1]+2*(interior_w_predict[:,0]**2+interior_w_predict[:,1]*interior_w_predict[:,2])
+#    div_grad_p =  pxx[0][:, 0]+pyy[0][:, 1]+2*(interior_w_predict[:,0]**2+interior_w_predict[:,1]*interior_w_predict[:,2])
+    div_grad_p =  pxx[0][:, 0]+pyy[0][:, 1]+2*(-grad_u1[0][:,0]*grad_u2[0][:,1]+grad_u1[0][:,1]*grad_u2[0][:,0])
  
     loss_function = nn.MSELoss()
     
@@ -120,7 +121,7 @@ def ResLoss_upw(x,bdry_x,f,divu_RHS,divf,bdry_velocity,beta,lamda,model_list,epo
     loss5 = loss_function(divu, divu_RHS)
     loss6 = loss_function(div_grad_p,divf)
     
-    res = loss1 + loss2 + loss3 + loss5 + loss6
+    res = loss1 + loss2 + loss3 + loss5
     bound = (loss4)              # 调用损失函数计算损失
     loss = beta * res + lamda * bound 
     

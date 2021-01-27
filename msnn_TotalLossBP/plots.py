@@ -202,7 +202,7 @@ def plot_pressure_along_line(model_p, epoch):
     pressure_on_gpu=model_p(XY)
     p = pressure_on_gpu.cpu().data.numpy()
     p_exact=pressure(np.array([X, Y]).T)
-    p_c=p[-1]-p_exact[-1]
+    p_c=p[0]-p_exact[0]
     p=p-p_c
     ftsize=14
     plt.figure()
@@ -298,7 +298,7 @@ if __name__ == '__main__':
     nb_head = 1
     model_p = MultiScaleNet(2, 1, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
     
-    epoch=1000
+    epoch=300
     model_p.load_state_dict(torch.load('netsave/p_net_params_at_epochs'+str(epoch)+'.pkl'))
 #     plot_velocity_error(model_u,  epoch) 
     

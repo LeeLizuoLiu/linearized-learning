@@ -87,13 +87,13 @@ if __name__ == '__main__':
     XY=Variable(torch.tensor(points),requires_grad=True).to(device)
     
     loss=np.array([0.0]*(args.epochs-loadepochs))
-    lamda = 10000. 
-    beta = 1 
+    lamda = 1. 
+    beta = 1. 
     gamma = 0.
     res_temp = 1e12
     bound_temp = 1e12
     coarse_loss = 0
-    train_data = data_generator(10,15,global_nu)
+    train_data = data_generator(1,2,global_nu)
     for epoch in range(loadepochs+1, args.epochs + 1): # 循环调用train() and test()进行epoch迭代
         if  coarse_loss< 3000 and epoch%5==1 :
             x_int, inter_target, xlxb, ulub  = train_data.generate(len_inte_data,len_bound_data)
@@ -114,11 +114,13 @@ if __name__ == '__main__':
                                                    coarse_data_loader,
                                                    optimizer, epoch, lamda,beta,gamma,CollectNorm)
 
-        if epoch%20==0:
+        if epoch%100==0:
             torch.save(model_u.state_dict(), 'netsave/u_net_params_at_epochs'+str(epoch)+'.pkl') 
             torch.save(model_p.state_dict(), 'netsave/p_net_params_at_epochs'+str(epoch)+'.pkl') 
             torch.save(model_w.state_dict(), 'netsave/w_net_params_at_epochs'+str(epoch)+'.pkl')  
             plot_contourf_vorticity(model_w,model_u, epoch,points, elements,XY)
+ 
+            
         lamda = lamda_temp
         if epoch%1000000==0:
                 gamma = gamma/1.03
