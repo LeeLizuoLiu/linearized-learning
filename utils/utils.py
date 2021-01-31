@@ -163,6 +163,30 @@ def plot_contourf_vorticity(model_w,model_u, epoch, points,elements,XY):
     ax.axis('equal')
     fig.savefig('result_plots/Epoch_'+str(epoch)+'velocity_contour.pdf')
     plt.close()
+def plot_u(model_u_old,model_u_new, epoch, points,elements,XY):
+    x, y = points.T
+    triangulation = tri.Triangulation(x, y, elements)
+    
+    velocity_new = model_u_new(XY)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    tcf = ax.tricontourf(triangulation, velocity_new[:,0].cpu().data.numpy(), cmap='rainbow',levels=100)
+    fig.colorbar(tcf)
+    ax.axis('equal')
+    fig.savefig('result_plots/New_Epoch_'+str(epoch)+'velocity_contour.pdf')
+    plt.close()
+
+    velocity_old = model_u_old(XY)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    tcf = ax.tricontourf(triangulation, velocity_old[:,0].cpu().data.numpy(), cmap='rainbow',levels=100)
+    fig.colorbar(tcf)
+    ax.axis('equal')
+    fig.savefig('result_plots/old_Epoch_'+str(epoch)+'velocity_contour.pdf')
+    plt.close()
+
 
 def plot_heatmap_v(model_w,model_u, epoch, points,elements,XY):
     x, y = points.T
@@ -318,6 +342,9 @@ class data_generator():
         yb2=self.lambda_const*expx*sinxy/(2.0*self.n_freq*np.pi)\
             + self.m_freq/self.n_freq*expx*cosxy
         return np.concatenate((yb1, yb2), axis=1) 
+    def pressure(self,x):
+        expx1=1/2*(1-np.exp(2*self.lambda_const*x[:,0:1]))
+        return expx1 
     def zero(self,x):
         return np.zeros((len(x), 1))
     def divf_func(self,x):
@@ -494,7 +521,7 @@ class MultiScaleNet(nn.Module):
             nn.Conv1d(in_channels=1 * nb_heads, out_channels=output_dim, kernel_size=1)
         )
         self.nb_heads = nb_heads
-        self.register_buffer('scale',torch.Tensor([[1.5**(j) for i in range(input_dim)] for j in range(nb_heads)]).view(input_dim*nb_heads,1))
+        self.register_buffer('scale',torch.Tensor([[2**(j) for i in range(input_dim)] for j in range(nb_heads)]).view(input_dim*nb_heads,1))
       
     def forward(self, x):
         x = x.repeat(1, self.nb_heads).unsqueeze(-1)
@@ -502,3 +529,112 @@ class MultiScaleNet(nn.Module):
         flat = self.network(x)
         return torch.squeeze(flat)
 
+class MultiHeadNaive(nn.Module):
+    def __init__(self, input_dim, output_dim, hidden_size=32, nb_heads=1):
+        super().__init__()
+
+        self.networks = nn.ModuleList()
+        for _ in range(nb_heads):
+            network = nn.Sequential(
+                nn.Linear(input_dim, hidden_size),
+                phi(),
+                nn.Linear(hidden_size, hidden_size),
+                phi(),
+                nn.Linear(hidden_size, hidden_size),
+                phi(),
+                nn.Linear(hidden_size, hidden_size),
+                phi(),
+                nn.Linear(hidden_size, 1),
+            )
+            self.networks.append(network)
+        self.predict = nn.Linear(nb_heads,output_dim)
+
+    def forward(self, x):
+        y = [net(2**i*x) for i, net in enumerate(self.networks)]
+        output = self.predict(torch.cat(y,dim=1))
+        return output
+
+
+class MultiScaleNet_Series(nn.Module):
+    def __init__(self, phi, nscale, n_feature, n_hidden, n_output):
+        super(MultiScaleNet_Series, self).__init__()
+        self.activation_fun=phi
+        self.nScale=nscale 
+        self.n_feature=n_feature
+        self.n_hidden =n_hidden
+        self.n_output =n_output
+        self.scalenets=nn.ModuleList([FullyConnectedNet(self.activation_fun, n_feature, n_hidden, 1) for i in range(self.nScale)])
+        self.predict  =torch.nn.Linear(self.nScale, n_output)  # output layer
+
+    def forward(self, x):
+        # activation function for hidden layer
+        y=[self.scalenets[i](2.0**i*x) for i in range(self.nScale)]
+        x=torch.cat(y, 1)
+        x=self.predict(x)                        # linear output
+        return x
+            
+
+class plot_sol():
+    def __init__(self,m,n,global_nu):
+        super(plot_sol).__init__()
+        self.Exact_solution = data_generator(m,n,global_nu)   
+ 
+    def plot_velocity_along_line(self, model_u, epoch,device,xline=2.3,yline=0.7):
+        X = np.arange(   0.0,   2.0, 0.0002).astype(np.float32)
+        Y = np.array([yline]*len(X)).astype(np.float32)
+        xy=np.array([X, Y]).T
+        XY=Variable(torch.tensor(xy),requires_grad=False).to(device)
+ 
+        velocity_on_gpu=model_u(XY)
+        v1 = velocity_on_gpu[:, 0].cpu().data.numpy()
+        v2 = velocity_on_gpu[:, 1].cpu().data.numpy()
+        v_exact=self.Exact_solution.velocity(xy)
+
+        plt.figure()
+        plt.plot(X, v_exact[:,0],  lw=1,label='Exact Solutions')
+        plt.plot(X[0::15], v1[0::15],'r+',lw=1,label='Predictions')
+        plt.xlabel('x',fontsize=14,alpha=1.0)
+        plt.ylabel('$v_x$',fontsize=14,alpha=1.0)
+        plt.savefig('result_plots/Epoch'+str(epoch)+'error_of_velocity_x_along_line.pdf')
+        plt.close()
+        plt.figure()
+        plt.plot(X, v_exact[:,1], lw=1, label='Exact Solutions')
+        plt.plot(X[0::15], v2[0::15], 'r+',  lw=1, label='Predictions')
+        plt.xlabel('x',fontsize=14,alpha=1.0)
+        plt.ylabel('$v_y$',fontsize=14,alpha=1.0)
+        plt.savefig('result_plots/Epoch'+str(epoch)+'error_of_velocity_y_along_line.pdf')
+        plt.close()
+        v=np.vstack((v1, v2)).T
+        np.savetxt('result_plots/exact_velocity'+'.txt', v_exact, fmt="%f", delimiter=",")
+        np.savetxt('result_plots/MSDNN_VGVP_velocity'+str(epoch)+'.txt', v, fmt="%f", delimiter=",")
+
+    def plot_pressure_along_line(self,model_p, epoch,device,xline=2.3,yline=0.7):
+        X = np.arange(   0.0,   2.0, 0.0002).astype(np.float32)
+        Y = np.array([yline]*len(X)).astype(np.float32)
+        xy=np.array([X, Y]).T
+        XY=Variable(torch.tensor(xy),requires_grad=False).to(device)
+ 
+        pressure_on_gpu=model_p(XY)
+        p = pressure_on_gpu.cpu().data.numpy()
+        p_exact=self.Exact_solution.pressure(np.array([X, Y]).T)
+        p_c = p[0]-p_exact[0]
+        p = p - p_c
+        ftsize=14
+        print(np.mean(p_exact-p))
+        plt.figure()
+        plt.plot(X, p_exact, label='exact', lw=1)
+        plt.plot(X[0::150], p[0::150], 'r*', label='MSDNN')
+        plt.xlabel('x',fontsize=14,alpha=1.0)
+        plt.ylabel('p',fontsize=14,alpha=1.0)
+        plt.tick_params(labelsize=ftsize)
+        plt.legend(fontsize=ftsize,loc="upper right")
+        plt.savefig('result_plots/Epoch'+str(epoch)+'error_of_pressure_x_along_line.pdf')
+        plt.close()
+        np.savetxt('result_plots/exact_pressure'+'.txt', p_exact, fmt="%f", delimiter=",")
+        np.savetxt('result_plots/MSDNN_VGVP_pressure'+str(epoch)+'.txt', p, fmt="%f", delimiter=",")
+
+def optimWithExpDecaylr(epochs,step,lr,parameters,minimum_lr = 1e-6):
+    delta_lr = np.exp(np.log(minimum_lr/lr)/(epochs//step))
+    altered_lr = lr*delta_lr
+    print("Changing learning rate to:{}".format(altered_lr))
+    return torch.optim.Adam(parameters,lr=altered_lr),altered_lr
