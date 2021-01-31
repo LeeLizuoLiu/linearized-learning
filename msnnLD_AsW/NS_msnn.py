@@ -96,7 +96,7 @@ def train_p(args, model_list, device, interior_train_loader,
         divu_RHS =Variable(target[:,   3], requires_grad=False)
 
         
-        loss_p = ResLoss_p(x,f,divu_RHS,beta,lamda,model_list)
+        loss_p = ResLoss_p(x,f,divf,beta,lamda,model_list)
         optimizer3.zero_grad()
         loss_p.backward()
         optimizer3.step()
@@ -189,7 +189,7 @@ def ResLoss_u(x,bdry_x,f,divu_RHS,bdry_velocity,beta,lamda,model_list,optimizer,
     loss_u = res + lamda * bound
     return loss_u
 
-def ResLoss_p(x,f,divu_RHS, beta,lamda,model_list):
+def ResLoss_p(x,f,divf, beta,lamda,model_list):
         #  the size of x is (batch_size, 2)  
     #  the size of interior_predict is (batch_size, 2)
     #  the size of interior_p_predict is (batch_size, 1)
@@ -216,11 +216,12 @@ def ResLoss_p(x,f,divu_RHS, beta,lamda,model_list):
 
     divw1=grad_w11[0][:, 0]+grad_w12[0][:, 1]
     divw2=grad_w21[0][:, 0]+grad_w22[0][:, 1]
-    div_grad_p =  pxx[0][:, 0]+pyy[0][:, 1]   
+    div_grad_p =  pxx[0][:, 0]+pyy[0][:, 1]+2*(interior_w_predict[:,0]**2+interior_w_predict[:,1]*interior_w_predict[:,2])   
     loss_function = nn.MSELoss()
     
     loss1 = loss_function(u_grad_u1-global_nu*divw1+grad_p[0][:,0], f[:,0])
     loss2 = loss_function(u_grad_u2-global_nu*divw2+grad_p[0][:,1], f[:,1])
+    loss3 = loss_function(div_grad_p,divf)
     res = loss1 + loss2 
     loss_p = beta * res  #+ gamma*loss3
     return loss_p

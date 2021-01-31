@@ -15,14 +15,14 @@ import pdb
 import os
 import sys
 sys.path.append("..")
-from utils.utils import FullyConnectedNet,load_mesh,load_pretrained_model,evaluate,plot_contourf_vorticity,DatasetFromTxt,generate_data_dirichlet,StatGrad
+from utils.utils import FullyConnectedNet,load_mesh,load_pretrained_model,evaluate,plot_contourf_vorticity,DatasetFromTxt,generate_data_dirichlet,StatGrad,data_generator
 from NS_msnn import MultiScaleNet,train_p,train_u,train_w
 
 
 
 if __name__ == '__main__':
    # Training settings
-    
+    global_nu = 0.1    
     parser = argparse.ArgumentParser(description='PyTorch MNIST Example')
     parser.add_argument('--nbatch', type=int, default=100, metavar='N',
                         help='input batch size for training (default: 500)')
@@ -91,15 +91,16 @@ if __name__ == '__main__':
     XY=Variable(torch.tensor(points),requires_grad=True).to(device)
     
     loss=np.array([0.0]*(args.epochs-loadepochs))
-    lamda = 1000. 
+    lamda = 10000. 
     beta = 1 
     gamma = 0.
     res_temp = 1e12
     bound_temp = 1e12
     coarse_loss = 0
+    train_data = data_generator(1,2,global_nu)
     for epoch in range(loadepochs+1, args.epochs + 1): # 循环调用train() and test()进行epoch迭代
         if  coarse_loss< 3000 and epoch%1==0 :
-            x_int, inter_target, xlxb, ulub  = generate_data_dirichlet(len_inte_data,len_bound_data)
+            x_int, inter_target, xlxb, ulub  = train_data.generate(len_inte_data,len_bound_data)
             interior_training_dataset=torch.utils.data.TensorDataset(torch.Tensor(x_int).to(device),torch.Tensor(inter_target).to(device))
             interior_training_data_loader = torch.utils.data.DataLoader(interior_training_dataset, 
                                                                         batch_size=int(len_inte_data/args.nbatch),
@@ -116,11 +117,10 @@ if __name__ == '__main__':
         loss_u=train_u(args, model_list, device, interior_training_data_loader, 
                                                    dirichlet_boundary_training_data_loader, 
                                                    optimizer2, epoch, lamda,beta)
-        if loss_u<150:
-            loss_w=train_w(args, model_list, device, interior_training_data_loader, 
-                                                   optimizer1, epoch, lamda)
-            loss_p=train_p(args, model_list, device, interior_training_data_loader, 
-                                                   optimizer3, epoch, lamda,beta)
+        loss_w=train_w(args, model_list, device, interior_training_data_loader, 
+                                               optimizer1, epoch, lamda)
+        loss_p=train_p(args, model_list, device, interior_training_data_loader, 
+                                               optimizer3, epoch, lamda,beta)
 
 
 
