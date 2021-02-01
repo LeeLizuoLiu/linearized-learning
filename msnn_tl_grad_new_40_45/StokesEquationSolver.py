@@ -51,7 +51,7 @@ if __name__ == '__main__':
     
     kwargs = {'num_workers': 0, 'pin_memory': False} if use_cuda else {} # 设置数据加载的子进程数；是否返回之前将张量复制到cuda的页锁定内存
     
-    nNeuron=128
+    nNeuron=100
     nb_head = 18
     
     model_u_old =MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
@@ -83,7 +83,7 @@ if __name__ == '__main__':
     XY=Variable(torch.tensor(points),requires_grad=True).to(device)
     
     loss=np.array([0.0]*(args.epochs-loadepochs))
-    lamda = 1e4 
+    lamda = 1 
     beta = 1.
     gamma = 0.
     res_temp = 1e12
@@ -114,6 +114,7 @@ if __name__ == '__main__':
                                                    dirichlet_boundary_training_data_loader, 
                                                    coarse_data_loader,
                                                    optimizer, epoch, lamda,beta,gamma)
+
         if epoch%(1)==0 and loss[epoch-1-loadepochs]<0.9*Loss_reshold:
             torch.save(model_u_new.state_dict(), 'netsave/old_u_net_params_at_epochs'+str(epoch)+'.pkl') 
             load_pretrained_model(model_u_old, 'netsave/old_u_net_params_at_epochs'+str(epoch)+'.pkl')
@@ -124,11 +125,15 @@ if __name__ == '__main__':
 #            optimizer,lr = optimWithExpDecaylr(args.epochs, lr_adjust_step,lr, paramsw+paramsp,minimum_lr=6e-4) # 实例化求解器
         if epoch%lr_adjust_step==1:
             optimizer = optim.Adam(paramsw+paramsp, lr=lr) # 实例化求解器
-            lr = lr-delta_lr
  
         if epoch%50==0:
             plot_sol_drawer.plot_pressure_along_line(model_p,epoch,device)
             plot_sol_drawer.plot_velocity_along_line(model_u_new,epoch,device)
+
+        if epoch>args.epochs/2:
+            len_inte_data = 2048*(args.nbatch-epoch//30) 
+            len_bound_data = 256*(args.nbatch-epoch//30)
+            
 
         lamda = lamda_temp
 

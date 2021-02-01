@@ -70,7 +70,7 @@ if __name__ == '__main__':
     
     paramsw = list(model_u_new.parameters())
     paramsp = list(model_p.parameters())
-    optimizer_u = optim.Adam(paramsw, lr=args.lr) # 实例化求解器
+    optimizer_u = optim.Adam(paramsw, lr=2*args.lr) # 实例化求解器
     optimizer_p = optim.Adam(paramsp, lr=args.lr) # 实例化求解器
 
 
@@ -125,7 +125,7 @@ if __name__ == '__main__':
 
 #            optimizer,lr = optimWithExpDecaylr(args.epochs, lr_adjust_step,lr, paramsw+paramsp,minimum_lr=6e-4) # 实例化求解器
         if epoch%lr_adjust_step==1:
-            optimizer_u = optim.Adam(paramsw, lr=lr) # 实例化求解器
+            optimizer_u = optim.Adam(paramsw, lr=2*lr) # 实例化求解器
             optimizer_p = optim.Adam(paramsp, lr=lr) # 实例化求解器
             lr = lr-delta_lr
  
