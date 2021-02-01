@@ -58,7 +58,7 @@ if __name__ == '__main__':
     model_p = FullyConnectedNet(2,nNeuron,1).to(device)	# 实例化自定义网络模型
     model_u_new = MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
     
-    loadepochs=489
+    loadepochs=0
 
     if loadepochs!=0:
         load_pretrained_model(model_u_old, 'netsave/old_u_net_params_at_epochs'+str(loadepochs)+'.pkl')
@@ -83,20 +83,20 @@ if __name__ == '__main__':
     XY=Variable(torch.tensor(points),requires_grad=True).to(device)
     
     loss=np.array([0.0]*(args.epochs-loadepochs))
-    lamda = 1 
+    lamda = 1e4 
     beta = 1.
     gamma = 0.
     res_temp = 1e12
     bound_temp = 1e12
     coarse_loss = 0
     Loss_reshold =  1e12
-    lr_adjust_step = 20
+    lr_adjust_step = 100
     lr = args.lr
     delta_lr = args.lr/(args.epochs/lr_adjust_step)
     train_data = data_generator(40,45,global_nu)
     plot_sol_drawer = plot_sol(40,45,global_nu)
     for epoch in range(loadepochs+1, args.epochs+1): # 循环调用train() and test()进行epoch迭代
-        if  coarse_loss< 3000 and epoch%5==0 :
+        if  coarse_loss< 3000 and epoch%5==1 :
             x_int, inter_target, xlxb, ulub  = train_data.generate(len_inte_data,len_bound_data)
             interior_training_dataset=torch.utils.data.TensorDataset(torch.Tensor(x_int).to(device),torch.Tensor(inter_target).to(device))
             interior_training_data_loader = torch.utils.data.DataLoader(interior_training_dataset, 
@@ -125,6 +125,7 @@ if __name__ == '__main__':
 #            optimizer,lr = optimWithExpDecaylr(args.epochs, lr_adjust_step,lr, paramsw+paramsp,minimum_lr=6e-4) # 实例化求解器
         if epoch%lr_adjust_step==1:
             optimizer = optim.Adam(paramsw+paramsp, lr=lr) # 实例化求解器
+            lr = lr - delta_lr
  
         if epoch%50==0:
             plot_sol_drawer.plot_pressure_along_line(model_p,epoch,device)
