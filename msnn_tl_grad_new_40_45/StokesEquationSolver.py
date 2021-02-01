@@ -58,7 +58,7 @@ if __name__ == '__main__':
     model_p = FullyConnectedNet(2,nNeuron,1).to(device)	# 实例化自定义网络模型
     model_u_new = MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
     
-    loadepochs=0
+    loadepochs=489
 
     if loadepochs!=0:
         load_pretrained_model(model_u_old, 'netsave/old_u_net_params_at_epochs'+str(loadepochs)+'.pkl')
@@ -96,7 +96,7 @@ if __name__ == '__main__':
     train_data = data_generator(40,45,global_nu)
     plot_sol_drawer = plot_sol(40,45,global_nu)
     for epoch in range(loadepochs+1, args.epochs+1): # 循环调用train() and test()进行epoch迭代
-        if  coarse_loss< 3000 and epoch%5==1 :
+        if  coarse_loss< 3000 and epoch%5==0 :
             x_int, inter_target, xlxb, ulub  = train_data.generate(len_inte_data,len_bound_data)
             interior_training_dataset=torch.utils.data.TensorDataset(torch.Tensor(x_int).to(device),torch.Tensor(inter_target).to(device))
             interior_training_data_loader = torch.utils.data.DataLoader(interior_training_dataset, 
@@ -129,10 +129,6 @@ if __name__ == '__main__':
         if epoch%50==0:
             plot_sol_drawer.plot_pressure_along_line(model_p,epoch,device)
             plot_sol_drawer.plot_velocity_along_line(model_u_new,epoch,device)
-
-        if epoch>args.epochs/2:
-            len_inte_data = 2048*(args.nbatch-epoch//30) 
-            len_bound_data = 256*(args.nbatch-epoch//30)
             
 
         lamda = lamda_temp
