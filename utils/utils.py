@@ -620,7 +620,7 @@ class plot_sol():
         p_c = p[0]-p_exact[0]
         p = p - p_c
         ftsize=14
-        print(np.mean(p_exact-p))
+        print(np.mean(np.abs(p_exact-p))/np.max(p_exact))
         plt.figure()
         plt.plot(X, p_exact, label='exact', lw=1)
         plt.plot(X[0::150], p[0::150], 'r*', label='MSDNN')
