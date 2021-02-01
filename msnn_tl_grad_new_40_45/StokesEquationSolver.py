@@ -90,7 +90,7 @@ if __name__ == '__main__':
     bound_temp = 1e12
     coarse_loss = 0
     Loss_reshold =  1e12
-    lr_adjust_step = 100
+    lr_adjust_step = 50
     lr = args.lr
     delta_lr = args.lr/(args.epochs/lr_adjust_step)
     train_data = data_generator(40,45,global_nu)
