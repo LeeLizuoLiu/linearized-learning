@@ -20,8 +20,8 @@ from NS_msnn import MultiScaleNet,train,global_nu
 nu=0.05
 Re=1.0/nu
 lambda_const=Re/2.0-np.sqrt(Re*Re/4.0+4.0*np.pi*np.pi)
-n_freq=30
-m_freq=35
+n_freq=40
+m_freq=45
 
 def velocity(x):
     expx1=np.reshape(np.exp(lambda_const*x[:, 0]), (x.shape[0], 1))
@@ -182,14 +182,14 @@ def plot_velocity_along_line(model_u, epoch):
     plt.plot(X, v1,   lw=1)
     plt.xlabel('x',fontsize=14,alpha=1.0)
     plt.ylabel('$v_x$',fontsize=14,alpha=1.0)
-    plt.savefig('result_plots/Epoch'+str(epoch)+'error_of_velocity_x_along_line.pdf')
+    plt.savefig('result_plots/Epoch'+str(epoch)+'_velocity_x_along_line.pdf')
     
     plt.figure()
     plt.plot(X, v_exact[:,1], lw=1)
     plt.plot(X, v2,   lw=1)
     plt.xlabel('x',fontsize=14,alpha=1.0)
     plt.ylabel('$v_y$',fontsize=14,alpha=1.0)
-    plt.savefig('result_plots/Epoch'+str(epoch)+'error_of_velocity_y_along_line.pdf')
+    plt.savefig('result_plots/Epoch'+str(epoch)+'_velocity_y_along_line.pdf')
     
     print(v1)
     v=np.vstack((v1, v2)).T
@@ -216,11 +216,57 @@ def plot_pressure_along_line(model_p, epoch):
     plt.ylabel('p',fontsize=14,alpha=1.0)
     plt.tick_params(labelsize=ftsize)
     plt.legend(fontsize=ftsize,loc="upper right")
-    plt.savefig('result_plots/Epoch'+str(epoch)+'error_of_pressure_x_along_line.pdf')
+    plt.savefig('result_plots/Epoch'+str(epoch)+'_pressure_x_along_line.pdf')
     
     np.savetxt('result_plots/exact_pressure'+'.txt', p_exact, fmt="%f", delimiter=",")
     np.savetxt('result_plots/MSDNN_VGVP_pressure'+str(epoch)+'.txt', p, fmt="%f", delimiter=",")
     
+def plot_velocity_along_line_error(model_u, epoch):
+    X = np.arange(   0.0,   2.0, 0.0002).astype(np.float32)
+    Y = np.array([0.7]*len(X)).astype(np.float32)
+    xy=np.array([X, Y]).T
+    XY=Variable(torch.tensor(xy),requires_grad=False).to(device)
+    velocity_on_gpu=model_u(XY)
+    v1 = velocity_on_gpu[:, 0].cpu().data.numpy()
+    v2 = velocity_on_gpu[:, 1].cpu().data.numpy()
+   
+    
+    v_exact=velocity(xy)
+    
+    plt.figure()
+    plt.plot(X, np.abs(v_exact[:,0]-v1)/np.max(v_exact[:,0]),  lw=1)
+    plt.xlabel('x',fontsize=14,alpha=1.0)
+    plt.ylabel('$v_x$',fontsize=14,alpha=1.0)
+    plt.savefig('result_plots/Epoch'+str(epoch)+'error_of_velocity_x_along_line.pdf')
+    
+    plt.figure()
+    plt.plot(X, np.abs(v_exact[:,1]-v2)/np.max(v_exact[:,1]), lw=1)
+    plt.xlabel('x',fontsize=14,alpha=1.0)
+    plt.ylabel('$v_y$',fontsize=14,alpha=1.0)
+    plt.savefig('result_plots/Epoch'+str(epoch)+'error_of_velocity_y_along_line.pdf')
+    
+    
+def plot_pressure_along_line_error(model_p, epoch):
+    model_p.eval() 
+    X = np.arange(   0.0,   2.0, 0.0002).astype(np.float32)
+    Y = np.array([0.8]*len(X)).astype(np.float32)
+    
+    XY=Variable(torch.tensor(np.array([X, Y]).T),requires_grad=False).to(device)
+    pressure_on_gpu=model_p(XY)
+    p = pressure_on_gpu.cpu().data.numpy()
+    p_exact=pressure(np.array([X, Y]).T)
+    p_c = p[0]-p_exact[0]
+    p = p - p_c
+    ftsize=14
+    print(np.mean(np.abs(p_exact-p))/np.max(p_exact))
+    plt.figure()
+    plt.plot(X, np.abs(p-p_exact)/np.max(p_exact), label='exact', lw=1)
+    plt.xlabel('x',fontsize=14,alpha=1.0)
+    plt.ylabel('p',fontsize=14,alpha=1.0)
+    plt.tick_params(labelsize=ftsize)
+    plt.legend(fontsize=ftsize,loc="upper right")
+    plt.savefig('result_plots/Epoch'+str(epoch)+'error_of_pressure_x_along_line.pdf')
+ 
 def test(args, model_u, model_p, device, test_loader):
     model_u.eval()          # 必备，将模型设置为评估模式
     model_p.eval()          # 必备，将模型设置为评估模式
@@ -301,12 +347,15 @@ if __name__ == '__main__':
     nNeuron=128
     nb_head = 1
     model_p =FullyConnectedNet(2,nNeuron,1).to(device)	 #FullyConnectedNet(2,nNeuron, 1).to(device)	# 实例化自定义网络模型
-    
-    epoch=955
+    epoch=959
     model_p.load_state_dict(torch.load('netsave/p_net_params_at_epochs'+str(epoch)+'.pkl'))
+    model_u = MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
+    model_u.load_state_dict(torch.load('netsave/old_u_net_params_at_epochs'+str(epoch)+'.pkl'))
+ 
 #     plot_velocity_error(model_u,  epoch) 
     
-    plot_pressure_along_line(model_p, epoch)
+    plot_pressure_along_line_error(model_p, epoch)
+    plot_velocity_along_line_error(model_u, epoch)
     
 #     plot_surf_velocity(model_u, epoch)
 #     startepochs=0

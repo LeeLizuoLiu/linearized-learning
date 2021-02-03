@@ -36,9 +36,9 @@ if __name__ == '__main__':
                         help='SGD momentum (default: 0.5)')
     parser.add_argument('--no-cuda', action='store_true', default=False,
                         help='disables CUDA training')
-    parser.add_argument('--seed', type=int, default=1213, metavar='S',
+    parser.add_argument('--seed', type=int, default=12130893497, metavar='S',
                         help='random seed (default: 1)')
-    parser.add_argument('--log-interval', type=int, default=5, metavar='N',
+    parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                         help='how many batches to wait before logging training status')
     
     args = parser.parse_args()
@@ -70,7 +70,7 @@ if __name__ == '__main__':
     
     paramsw = list(model_u_new.parameters())
     paramsp = list(model_p.parameters())
-    optimizer_u = optim.Adam(paramsw, lr=2*args.lr) # 实例化求解器
+    optimizer_u = optim.Adam(paramsw, lr=args.lr) # 实例化求解器
     optimizer_p = optim.Adam(paramsp, lr=args.lr) # 实例化求解器
 
 
@@ -92,7 +92,7 @@ if __name__ == '__main__':
     bound_temp = 1e12
     coarse_loss = 0
     Loss_reshold =  1e12
-    lr_adjust_step = 20
+    lr_adjust_step = 50
     lr = args.lr
     delta_lr = args.lr/(args.epochs/lr_adjust_step)
     train_data = data_generator(40,45,global_nu)
@@ -122,13 +122,14 @@ if __name__ == '__main__':
             Loss_reshold = loss[epoch-1-loadepochs]
             torch.save(model_p.state_dict(), 'netsave/p_net_params_at_epochs'+str(epoch)+'.pkl') 
             beta = 1.
-
-#            optimizer,lr = optimWithExpDecaylr(args.epochs, lr_adjust_step,lr, paramsw+paramsp,minimum_lr=6e-4) # 实例化求解器
         if epoch%lr_adjust_step==1:
-            optimizer_u = optim.Adam(paramsw, lr=2*lr) # 实例化求解器
+            optimizer_u = optim.Adam(paramsw, lr=lr) # 实例化求解器
             optimizer_p = optim.Adam(paramsp, lr=lr) # 实例化求解器
-            lr = lr-delta_lr
- 
+            lr = lr - delta_lr
+
+
+
+
         if epoch%50==0:
             plot_sol_drawer.plot_pressure_along_line(model_p,epoch,device)
             plot_sol_drawer.plot_velocity_along_line(model_u_new,epoch,device)

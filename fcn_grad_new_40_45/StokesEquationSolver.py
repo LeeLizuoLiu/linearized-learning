@@ -114,7 +114,7 @@ if __name__ == '__main__':
                                                    dirichlet_boundary_training_data_loader, 
                                                    coarse_data_loader,
                                                    optimizer, epoch, lamda,beta,gamma)
-        if epoch%(5)==0 and loss[epoch-1-loadepochs]<0.9*Loss_reshold:
+        if epoch%(1)==0 and loss[epoch-1-loadepochs]<0.9*Loss_reshold:
             torch.save(model_u_new.state_dict(), 'netsave/old_u_net_params_at_epochs'+str(epoch)+'.pkl') 
             load_pretrained_model(model_u_old, 'netsave/old_u_net_params_at_epochs'+str(epoch)+'.pkl')
             Loss_reshold = loss[epoch-1-loadepochs]
