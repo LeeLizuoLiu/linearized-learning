@@ -302,7 +302,7 @@ if __name__ == '__main__':
     nb_head = 1
     model_p = FullyConnectedNet(2,nNeuron, 1).to(device)	# 实例化自定义网络模型
     
-    epoch=300
+    epoch=261
     model_p.load_state_dict(torch.load('netsave/p_net_params_at_epochs'+str(epoch)+'.pkl'))
 #     plot_velocity_error(model_u,  epoch) 
     

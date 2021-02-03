@@ -106,14 +106,14 @@ if __name__ == '__main__':
                                                                                 shuffle=True, 
                                                                                 **kwargs)
 
-        loss_epoch,lamda_temp, bound, res, coarse_loss=train(args, model_list, device, interior_training_data_loader, 
+        loss[epoch - loadepochs -1],lamda_temp, bound, res, coarse_loss=train(args, model_list, device, interior_training_data_loader, 
                                                    dirichlet_boundary_training_data_loader, 
                                                    coarse_data_loader,
                                                    optimizer, epoch, lamda,beta,gamma)
-        if epoch%(3+epoch//10)==0 and loss_epoch<0.9*Loss_reshold:
+        if epoch%5==0 and loss[epoch - loadepochs -1]<0.9*Loss_reshold:
             torch.save(model_u_new.state_dict(), 'netsave/old_u_net_params_at_epochs'+str(epoch)+'.pkl') 
             load_pretrained_model(model_u_old, 'netsave/old_u_net_params_at_epochs'+str(epoch)+'.pkl')
-            Loss_reshold = loss_epoch
+            Loss_reshold =loss[epoch - loadepochs -1] 
             torch.save(model_p.state_dict(), 'netsave/p_net_params_at_epochs'+str(epoch)+'.pkl') 
  
         if epoch%50==0:
@@ -138,3 +138,4 @@ if __name__ == '__main__':
     plt.savefig('result_plots/loss'+str(loadepochs)+'to'+str(args.epochs)+'.pdf')
     plt.close()
 
+    np.save('loss',loss)

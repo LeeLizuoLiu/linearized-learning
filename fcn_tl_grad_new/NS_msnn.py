@@ -98,6 +98,9 @@ def ResLoss_upw(x,bdry_x,f,divu_RHS,divf,bdry_velocity,beta,lamda,model_list,epo
     grad_w22= torch.autograd.grad(grad_u2_new[0][:, 1], x,  create_graph=True, grad_outputs=[torch.ones_like(grad_u1_new[0][:, 1])])
 
     grad_p = torch.autograd.grad(interior_p_predict, x,  create_graph=True, grad_outputs=[torch.ones_like(interior_p_predict)])
+    pxx = torch.autograd.grad(grad_p[0][:, 0], x,  create_graph=True, grad_outputs=[torch.ones_like(grad_p[0][:, 0])])
+    pyy = torch.autograd.grad(grad_p[0][:, 1], x,  create_graph=True, grad_outputs=[torch.ones_like(grad_p[0][:, 1])])
+
 
     u_grad_u1 = torch.sum(interior_u_predict_old*grad_u1_new[0], dim=1)
     u_grad_u2 = torch.sum(interior_u_predict_old*grad_u2_new[0], dim=1)
@@ -107,7 +110,7 @@ def ResLoss_upw(x,bdry_x,f,divu_RHS,divf,bdry_velocity,beta,lamda,model_list,epo
     divw1=grad_w11[0][:, 0]+grad_w12[0][:, 1]
     divw2=grad_w21[0][:, 0]+grad_w22[0][:, 1]
 
-    div_grad_p =  -1./2.*torch.sum(torch.square(grad_p[0]),dim=1)+interior_p_predict* 2*(-grad_u2_old[0][:,1]*grad_u1_old[0][:,0]+grad_u1_old[0][:,1]*grad_u2_old[0][:,0])
+    div_grad_p =  pxx[0][:, 0]+pyy[0][:, 1]+2*(-grad_u2_new[0][:,1]*grad_u1_new[0][:,0]+grad_u1_new[0][:,1]*grad_u2_new[0][:,0])
  
     loss_function = nn.MSELoss()
     
@@ -115,7 +118,7 @@ def ResLoss_upw(x,bdry_x,f,divu_RHS,divf,bdry_velocity,beta,lamda,model_list,epo
     loss2 = loss_function(u_grad_u2-global_nu*divw2+grad_p[0][:,1], f[:,1])
     loss4 = loss_function(bdry_u_predict, bdry_velocity[:, 0:2])
     loss5 = loss_function(divu, divu_RHS)
-    loss6 = torch.abs(torch.mean(div_grad_p-divf*interior_p_predict))
+    loss6 = torch.abs(torch.mean(div_grad_p-divf))
   
     res = loss1 + loss2  + loss5 + loss6
     bound = (loss4)              # 调用损失函数计算损失
