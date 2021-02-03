@@ -2,9 +2,14 @@
 *.json
 *.ipynb
 *.dat
+*.txt
+*.npy
 Data/
 __pycache__/
 gradients/
-netsave/
+netsave*/
 result_plots/
 Verification/
+.ipynb_checkpoints/
+*.pdf
+*.out
