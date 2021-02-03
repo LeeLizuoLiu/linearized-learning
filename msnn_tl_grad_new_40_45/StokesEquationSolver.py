@@ -36,7 +36,7 @@ if __name__ == '__main__':
                         help='SGD momentum (default: 0.5)')
     parser.add_argument('--no-cuda', action='store_true', default=False,
                         help='disables CUDA training')
-    parser.add_argument('--seed', type=int, default=1213, metavar='S',
+    parser.add_argument('--seed', type=int, default=12198789792343, metavar='S',
                         help='random seed (default: 1)')
     parser.add_argument('--log-interval', type=int, default=5, metavar='N',
                         help='how many batches to wait before logging training status')
@@ -51,7 +51,7 @@ if __name__ == '__main__':
     
     kwargs = {'num_workers': 0, 'pin_memory': False} if use_cuda else {} # 设置数据加载的子进程数；是否返回之前将张量复制到cuda的页锁定内存
     
-    nNeuron=100
+    nNeuron=128
     nb_head = 18
     
     model_u_old =MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
@@ -90,7 +90,7 @@ if __name__ == '__main__':
     bound_temp = 1e12
     coarse_loss = 0
     Loss_reshold =  1e12
-    lr_adjust_step = 50
+    lr_adjust_step = 100 
     lr = args.lr
     delta_lr = args.lr/(args.epochs/lr_adjust_step)
     train_data = data_generator(40,45,global_nu)
@@ -115,12 +115,11 @@ if __name__ == '__main__':
                                                    coarse_data_loader,
                                                    optimizer, epoch, lamda,beta,gamma)
 
-        if epoch%(1)==0 and loss[epoch-1-loadepochs]<0.9*Loss_reshold:
+        if epoch%(5)==0 and loss[epoch-1-loadepochs]<0.9*Loss_reshold:
             torch.save(model_u_new.state_dict(), 'netsave/old_u_net_params_at_epochs'+str(epoch)+'.pkl') 
             load_pretrained_model(model_u_old, 'netsave/old_u_net_params_at_epochs'+str(epoch)+'.pkl')
             Loss_reshold = loss[epoch-1-loadepochs]
             torch.save(model_p.state_dict(), 'netsave/p_net_params_at_epochs'+str(epoch)+'.pkl') 
-            beta = 1.
 
 #            optimizer,lr = optimWithExpDecaylr(args.epochs, lr_adjust_step,lr, paramsw+paramsp,minimum_lr=6e-4) # 实例化求解器
         if epoch%lr_adjust_step==1:
@@ -139,3 +138,4 @@ if __name__ == '__main__':
     plt.savefig('result_plots/loss'+str(loadepochs)+'to'+str(args.epochs)+'.pdf')
     plt.close()
 
+    np.save('loss.txt',loss)

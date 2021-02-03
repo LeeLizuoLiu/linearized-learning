@@ -69,10 +69,11 @@ def train(args, model_list, device, interior_train_loader,
             print('Train Epoch: {:>5d}  [{:>6d}/{} ({:3.0f}%)] Loss of res: {:.6f} Loss of bound: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(interior_train_loader.dataset),
                 100. * batch_idx / len(interior_train_loader), res.item(),bound.item()))
-        retloss=loss_total
-        retbound = 0
-        retres = 0
-        retcoar_loss = 0
+        if batch_idx==0:
+            retloss=loss_total
+            retbound = 0
+            retres = 0
+            retcoar_loss = 0
 
     return retloss, lamda_temp, retbound, retres, retcoar_loss
 def ResLoss_upw(x,bdry_x,f,divu_RHS,divf,bdry_velocity,beta,lamda,model_list,epoch):

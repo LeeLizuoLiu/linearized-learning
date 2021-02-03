@@ -72,7 +72,7 @@ if __name__ == '__main__':
 
     model_list=[model_u,  model_p, model_w]  
 
-    len_inte_data = 1024*args.nbatch 
+    len_inte_data = 2048*args.nbatch 
     len_bound_data = 256*args.nbatch
     
     
@@ -98,7 +98,7 @@ if __name__ == '__main__':
     train_data = data_generator(40,45,global_nu)
     plot_sol_drawer = plot_sol(40,45,global_nu)
     for epoch in range(loadepochs+1, args.epochs + 1): # 循环调用train() and test()进行epoch迭代
-        if  coarse_loss< 3000 and epoch%1==0 :
+        if  coarse_loss< 3000 and epoch%5==1 :
             x_int, inter_target, xlxb, ulub  = train_data.generate(len_inte_data,len_bound_data)
             interior_training_dataset=torch.utils.data.TensorDataset(torch.Tensor(x_int).to(device),torch.Tensor(inter_target).to(device))
             interior_training_data_loader = torch.utils.data.DataLoader(interior_training_dataset, 
@@ -134,3 +134,4 @@ if __name__ == '__main__':
     plt.savefig('result_plots/loss'+str(loadepochs)+'to'+str(args.epochs)+'.pdf')
     plt.close()
 
+    np.save('loss.txt',loss)
