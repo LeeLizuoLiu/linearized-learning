@@ -31,7 +31,7 @@ class MultiScaleNet(nn.Module):
 
     def forward(self, x):
        # activation function for hidden layer
-        alpha = 4 
+        alpha = 2 
         y01 = self.scalenet01(x)
         y02 = self.scalenet02(alpha**1.0*x)
         y03 = self.scalenet03(alpha**2.0*x)
@@ -46,7 +46,7 @@ class MultiScaleNet(nn.Module):
 
 def train(args, model_list, device, interior_train_loader, 
           dirichlet_bdry_training_data_loader, coarse_data_loader,
-          optimizer, epoch,lamda,beta,gamma): # 还可添加loss_func等参数
+          optimizer, epoch,lamda,beta,gamma,train=True): # 还可添加loss_func等参数
     retloss=[]
     bdryiter= iter(dirichlet_bdry_training_data_loader)
     coarseiter = iter(coarse_data_loader)
@@ -60,22 +60,36 @@ def train(args, model_list, device, interior_train_loader,
         bdry_x       =Variable(  bdrydata, requires_grad=False)
         bdry_velocity=Variable(bdrytarget, requires_grad=False)
         loss_total,res,bound = ResLoss_upw(x,bdry_x,f,divu_RHS,divf,bdry_velocity,beta,lamda,model_list,epoch)
-        optimizer.zero_grad()
-        loss_total.backward()
-        optimizer.step()
-        lamda_temp = lamda
+        if train:
+            optimizer.zero_grad()
+            loss_total.backward()
+            optimizer.step()
 
-        if batch_idx % args.log_interval == 0: # 根据设置的显式间隔输出训练日志
-            print('Train Epoch: {:>5d}  [{:>6d}/{} ({:3.0f}%)] Loss of res: {:.6f} Loss of bound: {:.6f}'.format(
-                epoch, batch_idx * len(data), len(interior_train_loader.dataset),
-                100. * batch_idx / len(interior_train_loader), res.item(),bound.item()))
-        if batch_idx==0:
-            retloss=loss_total
-            retbound = 0
-            retres = 0
-            retcoar_loss = 0
+            if batch_idx % args.log_interval == 0: # 根据设置的显式间隔输出训练日志
+                print('Train Epoch: {:>5d}  [{:>6d}/{} ({:3.0f}%)] Loss of res: {:.6f} Loss of bound: {:.6f}'.format(
+                    epoch, batch_idx * len(data), len(interior_train_loader.dataset),
+                    100. * batch_idx / len(interior_train_loader), res.item(),bound.item()))
+        retloss=loss_total
+        retbound = 0
+        retres = 0
+        retcoar_loss = 0
+    return retloss, retbound, retres, retcoar_loss
 
-    return retloss, lamda_temp, retbound, retres, retcoar_loss
+def eval_loss(args, model_list, device, interior_x,interior_target, 
+          dirichlet_bdry_x, dirichlet_bdry_y): # 还可添加loss_func等参数
+    x        =Variable(interior_x,     requires_grad=True )     
+    f        =Variable(interior_target[:, 0:2], requires_grad=False)
+    divf     =Variable(interior_target[:,   2], requires_grad=False)
+    divu_RHS =Variable(interior_target[:,   3], requires_grad=False)
+
+    bdry_x       =Variable(dirichlet_bdry_x, requires_grad=False)
+    bdry_velocity=Variable(dirichlet_bdry_y, requires_grad=False)
+    loss_total,res,bound = ResLoss_upw(x,bdry_x,f,divu_RHS,divf,bdry_velocity,1,1,model_list,0)
+    return loss_total
+
+
+
+
 def ResLoss_upw(x,bdry_x,f,divu_RHS,divf,bdry_velocity,beta,lamda,model_list,epoch):
     
     interior_u_predict_old = model_list[0](x) 

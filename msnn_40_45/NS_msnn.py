@@ -31,7 +31,7 @@ class MultiScaleNet(nn.Module):
 
     def forward(self, x):
        # activation function for hidden layer
-        alpha = 4 
+        alpha = 2 
         y01 = self.scalenet01(x)
         y02 = self.scalenet02(alpha**1.0*x)
         y03 = self.scalenet03(alpha**2.0*x)

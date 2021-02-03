@@ -16,7 +16,7 @@ import os
 import sys
 sys.path.append("..")
 from utils.utils import optimWithExpDecaylr, plot_sol,FullyConnectedNet,load_mesh,load_pretrained_model,evaluate,plot_u,DatasetFromTxt,generate_data_dirichlet,StatGrad,data_generator
-from NS_msnn import MultiScaleNet,train,global_nu
+from NS_msnn import MultiScaleNet,train,global_nu,eval_loss
 
 
 
@@ -61,9 +61,9 @@ if __name__ == '__main__':
     loadepochs=0
 
     if loadepochs!=0:
-        load_pretrained_model(model_u_old, 'netsave/old_u_net_params_at_epochs'+str(loadepochs)+'.pkl')
-        load_pretrained_model(model_p, 'netsave/p_net_params_at_epochs'+str(loadepochs)+'.pkl')
-        load_pretrained_model(model_u_new, 'netsave/old_u_net_params_at_epochs'+str(loadepochs)+'.pkl')
+        load_pretrained_model(model_u_old, 'netsave/old_u_net_params_at_epochs.pkl')
+        load_pretrained_model(model_p, 'netsave/p_net_params_at_epochs.pkl')
+        load_pretrained_model(model_u_new, 'netsave/old_u_net_params_at_epochs.pkl')
         
     len_inte_data = 2048*args.nbatch 
     len_bound_data = 256*args.nbatch
@@ -83,7 +83,7 @@ if __name__ == '__main__':
     XY=Variable(torch.tensor(points),requires_grad=True).to(device)
     
     loss=np.array([0.0]*(args.epochs-loadepochs))
-    lamda = 1e2 
+    lamda = 1e4 
     beta = 1.
     gamma = 0.
     res_temp = 1e12
@@ -94,9 +94,19 @@ if __name__ == '__main__':
     lr = args.lr
     delta_lr = args.lr/(args.epochs/lr_adjust_step)
     train_data = data_generator(40,45,global_nu)
+    evaluate = True
+    if evaluate:
+        len_inte_data_eval = 12800
+        len_bound_data_eval = 6400
+        x_int_eval, inter_target_eval, xlxb_eval, ulub_eval  = train_data.generate(len_inte_data_eval,len_bound_data_eval)
+        x_int_eval_device = torch.Tensor(x_int_eval).to(device)
+        inter_target_eval_device = torch.Tensor(inter_target_eval).to(device)
+        xlxb_eval_device = torch.Tensor(xlxb_eval).to(device)
+        ulub_eval_device = torch.Tensor(ulub_eval).to(device)
+
     plot_sol_drawer = plot_sol(40,45,global_nu)
     for epoch in range(loadepochs+1, args.epochs+1): # 循环调用train() and test()进行epoch迭代
-        if  coarse_loss< 3000 and epoch%5==1 :
+        if epoch%1==0 :
             x_int, inter_target, xlxb, ulub  = train_data.generate(len_inte_data,len_bound_data)
             interior_training_dataset=torch.utils.data.TensorDataset(torch.Tensor(x_int).to(device),torch.Tensor(inter_target).to(device))
             interior_training_data_loader = torch.utils.data.DataLoader(interior_training_dataset, 
@@ -110,28 +120,25 @@ if __name__ == '__main__':
                                                                                 shuffle=True, 
                                                                                 **kwargs)
 
-        loss[epoch-1-loadepochs],lamda_temp, bound, res, coarse_loss=train(args, model_list, device, interior_training_data_loader, 
+        loss[epoch-1-loadepochs], bound, res, coarse_loss=train(args, model_list, device, interior_training_data_loader, 
                                                    dirichlet_boundary_training_data_loader, 
                                                    coarse_data_loader,
                                                    optimizer, epoch, lamda,beta,gamma)
-        if epoch%(5)==0 and loss[epoch-1-loadepochs]<0.9*Loss_reshold:
-            torch.save(model_u_new.state_dict(), 'netsave/old_u_net_params_at_epochs'+str(epoch)+'.pkl') 
-            load_pretrained_model(model_u_old, 'netsave/old_u_net_params_at_epochs'+str(epoch)+'.pkl')
-            Loss_reshold = loss[epoch-1-loadepochs]
-            torch.save(model_p.state_dict(), 'netsave/p_net_params_at_epochs'+str(epoch)+'.pkl') 
-            beta = 1.
+
+        if epoch%(1)==0:
+            if loss[epoch-1-loadepochs] < 0.9*Loss_reshold:
+                torch.save(model_u_new.state_dict(), 'netsave/old_u_net_params_at_epochs.pkl') 
+                load_pretrained_model(model_u_old, 'netsave/old_u_net_params_at_epochs.pkl')
+                Loss_reshold =loss[epoch-1-loadepochs]  
+                torch.save(model_p.state_dict(), 'netsave/p_net_params_at_epochs.pkl') 
+
         if epoch%lr_adjust_step==1:
             optimizer = optim.Adam(paramsw+paramsp, lr=lr) # 实例化求解器
-            lr = lr-delta_lr
- 
-
-#            optimizer,lr = optimWithExpDecaylr(args.epochs, lr_adjust_step,lr, paramsw+paramsp,minimum_lr=6e-4) # 实例化求解器
-
+            lr = lr - delta_lr
+        
         if epoch%50==0:
             plot_sol_drawer.plot_pressure_along_line(model_p,epoch,device)
             plot_sol_drawer.plot_velocity_along_line(model_u_new,epoch,device)
-
-        lamda = lamda_temp
 
     plt.plot(np.array(range(loadepochs, args.epochs)), loss, 'b-', lw=2)
     plt.yscale('log')
