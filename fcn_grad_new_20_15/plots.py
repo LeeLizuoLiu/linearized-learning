@@ -20,8 +20,8 @@ from NS_msnn import MultiScaleNet,train,global_nu
 nu=0.05
 Re=1.0/nu
 lambda_const=Re/2.0-np.sqrt(Re*Re/4.0+4.0*np.pi*np.pi)
-n_freq=1
-m_freq=2
+n_freq=20
+m_freq=15
 
 def velocity(x):
     expx1=np.reshape(np.exp(lambda_const*x[:, 0]), (x.shape[0], 1))
@@ -179,7 +179,7 @@ def plot_velocity_along_line(model_u, epoch):
     
     plt.figure()
     plt.plot(X, v_exact[:,0],  lw=1,label='exact')
-    plt.plot(X[0::50], v1[0::50],'r.',   alpha=.70,label='MSDNN')
+    plt.plot(X[0::20], v1[0::20],'r.',   alpha=.70,label='FCN')
     plt.xlabel('x',fontsize=14,alpha=1.0)
     plt.ylabel('$v_x$',fontsize=14,alpha=1.0)
     plt.axis('auto')
@@ -188,7 +188,7 @@ def plot_velocity_along_line(model_u, epoch):
      
     plt.figure()
     plt.plot(X, v_exact[:,1], lw=1,label='exact')
-    plt.plot(X[0::50], v2[0::50], 'r.',  alpha=.70,label='MSDNN')
+    plt.plot(X[0::20], v2[0::20], 'r.',  alpha=.70,label='FCN')
     plt.xlabel('x',fontsize=14,alpha=1.0)
     plt.ylabel('$v_y$',fontsize=14,alpha=1.0)
     plt.axis('auto')
@@ -215,7 +215,7 @@ def plot_pressure_along_line(model_p, epoch):
     print(np.mean(p_exact-p))
     plt.figure()
     plt.plot(X, p_exact, label='exact', lw=1)
-    plt.plot(X[0::150], p[0::150], 'r*', label='MSDNN')
+    plt.plot(X[0::150], p[0::150], 'r*', label='FCN')
     plt.xlabel('x',fontsize=14,alpha=1.0)
     plt.ylabel('p',fontsize=14,alpha=1.0)
     plt.tick_params(labelsize=ftsize)
@@ -302,11 +302,11 @@ def test(args, model_u, model_p, device, test_loader):
 if __name__ == '__main__':
     
     device = torch.device("cuda") # 设置使用CPU or GPU
-    nNeuron=100
+    nNeuron=1024
     nb_head = 1
     model_p =FullyConnectedNet(2,nNeuron,1).to(device)	 #FullyConnectedNet(2,nNeuron, 1).to(device)	# 实例化自定义网络模型
     
-    epoch=145
+    epoch=917
 #     plot_velocity_error(model_u,  epoch) 
     
     model_u = FullyConnectedNet(2,nNeuron,2).to(device)	# 实例化自定义网络模型

@@ -20,8 +20,8 @@ from NS_msnn import MultiScaleNet,train,global_nu
 nu=0.05
 Re=1.0/nu
 lambda_const=Re/2.0-np.sqrt(Re*Re/4.0+4.0*np.pi*np.pi)
-n_freq=30
-m_freq=35
+n_freq=1
+m_freq=2
 
 def velocity(x):
     expx1=np.reshape(np.exp(lambda_const*x[:, 0]), (x.shape[0], 1))
@@ -178,17 +178,21 @@ def plot_velocity_along_line(model_u, epoch):
     v_exact=velocity(xy)
     
     plt.figure()
-    plt.plot(X, v_exact[:,0],  lw=1)
-    plt.plot(X, v1,   lw=1)
+    plt.plot(X, v_exact[:,0],  lw=1,label='exact')
+    plt.plot(X[0::50], v1[0::50],'r.',   alpha=.70,label='MSDNN')
     plt.xlabel('x',fontsize=14,alpha=1.0)
     plt.ylabel('$v_x$',fontsize=14,alpha=1.0)
+    plt.axis('auto')
+    plt.legend() 
     plt.savefig('result_plots/Epoch'+str(epoch)+'error_of_velocity_x_along_line.pdf')
-    
+     
     plt.figure()
-    plt.plot(X, v_exact[:,1], lw=1)
-    plt.plot(X, v2,   lw=1)
+    plt.plot(X, v_exact[:,1], lw=1,label='exact')
+    plt.plot(X[0::50], v2[0::50], 'r.',  alpha=.70,label='MSDNN')
     plt.xlabel('x',fontsize=14,alpha=1.0)
     plt.ylabel('$v_y$',fontsize=14,alpha=1.0)
+    plt.axis('auto')
+    plt.legend()
     plt.savefig('result_plots/Epoch'+str(epoch)+'error_of_velocity_y_along_line.pdf')
     
     print(v1)
@@ -300,13 +304,21 @@ if __name__ == '__main__':
     device = torch.device("cuda") # 设置使用CPU or GPU
     nNeuron=100
     nb_head = 1
-    model_p = FullyConnectedNet(2,nNeuron, 1).to(device)	# 实例化自定义网络模型
+    model_p =FullyConnectedNet(2,nNeuron,1).to(device)	 #FullyConnectedNet(2,nNeuron, 1).to(device)	# 实例化自定义网络模型
     
-    epoch=300
+    epoch=275
+#     plot_velocity_error(model_u,  epoch) 
+    
+    model_u = FullyConnectedNet(2,nNeuron,2).to(device)	# 实例化自定义网络模型
+    model_u.load_state_dict(torch.load('netsave/old_u_net_params_at_epochs'+str(epoch)+'.pkl'))
+    model_p =FullyConnectedNet(2,nNeuron,1).to(device)	 #FullyConnectedNet(2,nNeuron, 1).to(device)	# 实例化自定义网络模型
     model_p.load_state_dict(torch.load('netsave/p_net_params_at_epochs'+str(epoch)+'.pkl'))
+ 
 #     plot_velocity_error(model_u,  epoch) 
     
     plot_pressure_along_line(model_p, epoch)
+    plot_velocity_along_line(model_u, epoch)
+#     plot_velocity_error(model_u,  epoch) 
     
 #     plot_surf_velocity(model_u, epoch)
 #     startepochs=0

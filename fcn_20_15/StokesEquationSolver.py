@@ -15,7 +15,7 @@ import pdb
 import os
 import sys
 sys.path.append("..")
-from utils.utils import FullyConnectedNet,load_mesh,load_pretrained_model,evaluate,plot_u,DatasetFromTxt,generate_data_dirichlet,StatGrad,data_generator
+from utils.utils import optimWithExpDecaylr, plot_sol,FullyConnectedNet,load_mesh,load_pretrained_model,evaluate,plot_u,DatasetFromTxt,generate_data_dirichlet,StatGrad,data_generator
 from NS_msnn import MultiScaleNet,train,global_nu
 
 
@@ -51,28 +51,30 @@ if __name__ == '__main__':
     
     kwargs = {'num_workers': 0, 'pin_memory': False} if use_cuda else {} # 设置数据加载的子进程数；是否返回之前将张量复制到cuda的页锁定内存
     
-    nNeuron=100
+    nNeuron=128*8
     nb_head = 18
     
-    model_u_old =MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
-    model_p = FullyConnectedNet(2,nNeuron,1).to(device)	# 实例化自定义网络模型
-    model_u_new = MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
+    model_u = FullyConnectedNet(2,nNeuron, 2).to(device)	# 实例化自定义网络模型
+    model_w = FullyConnectedNet(2,nNeuron, 4).to(device)	# 实例化自定义网络模型
+    model_p = FullyConnectedNet(2,nNeuron, 1).to(device)	# 实例化自定义网络模型
     
     loadepochs=0
     
     if loadepochs!=0:
-        load_pretrained_model(model_u_old, 'netsave/old_u_net_params_at_epochs'+str(loadepochs)+'.pkl')
+        load_pretrained_model(model_u, 'netsave/u_net_params_at_epochs'+str(loadepochs)+'.pkl')
+        load_pretrained_model(model_w, 'netsave/w_net_params_at_epochs'+str(loadepochs)+'.pkl')
         load_pretrained_model(model_p, 'netsave/p_net_params_at_epochs'+str(loadepochs)+'.pkl')
-        load_pretrained_model(model_u_new, 'netsave/new_u_net_params_at_epochs'+str(loadepochs)+'.pkl')
-        
-    len_inte_data = 3200*args.nbatch 
-    len_bound_data = 320*args.nbatch
     
-    paramsw = list(model_u_new.parameters())
+    paramsw = list(model_w.parameters())
+    paramsu = list(model_u.parameters())
     paramsp = list(model_p.parameters())
-    optimizer = optim.Adam(paramsw+paramsp, lr=args.lr) # 实例化求解器
+    optimizer = optim.Adam(paramsw+paramsu+paramsp, lr=args.lr) # 实例化求解器
 
-    model_list=[model_u_old,model_u_new,model_p]  
+    model_list=[model_u,  model_p, model_w]  
+
+    len_inte_data = 2048*args.nbatch 
+    len_bound_data = 256*args.nbatch
+    
     
     coarse_training_dataset = DatasetFromTxt(filepath+'/Data/uvp.txt',device)    
     coarse_data_loader = torch.utils.data.DataLoader(coarse_training_dataset,
@@ -83,14 +85,18 @@ if __name__ == '__main__':
     XY=Variable(torch.tensor(points),requires_grad=True).to(device)
     
     loss=np.array([0.0]*(args.epochs-loadepochs))
-    lamda = 10. 
-    beta = 1. 
+    lamda = 1e4 
+    beta = 1.
     gamma = 0.
     res_temp = 1e12
     bound_temp = 1e12
     coarse_loss = 0
     Loss_reshold = 1e12
+    lr_adjust_step = 100
+    lr = args.lr
+    delta_lr = args.lr/(args.epochs/lr_adjust_step)
     train_data = data_generator(20,15,global_nu)
+    plot_sol_drawer = plot_sol(20,15,global_nu)
     for epoch in range(loadepochs+1, args.epochs + 1): # 循环调用train() and test()进行epoch迭代
         if  coarse_loss< 3000 and epoch%5==1 :
             x_int, inter_target, xlxb, ulub  = train_data.generate(len_inte_data,len_bound_data)
@@ -106,33 +112,26 @@ if __name__ == '__main__':
                                                                                 shuffle=True, 
                                                                                 **kwargs)
 
-        loss_epoch,lamda_temp, bound, res, coarse_loss=train(args, model_list, device, interior_training_data_loader, 
+        loss[epoch-1-loadepochs],lamda_temp, bound, res, coarse_loss=train(args, model_list, device, interior_training_data_loader, 
                                                    dirichlet_boundary_training_data_loader, 
                                                    coarse_data_loader,
                                                    optimizer, epoch, lamda,beta,gamma)
-        if epoch%(5)==0 and loss_epoch<0.9*Loss_reshold:
-            torch.save(model_u_new.state_dict(), 'netsave/old_u_net_params_at_epochs'+str(epoch)+'.pkl') 
-            load_pretrained_model(model_u_old, 'netsave/old_u_net_params_at_epochs'+str(epoch)+'.pkl')
-            Loss_reshold = loss_epoch
-            torch.save(model_p.state_dict(), 'netsave/p_net_params_at_epochs'+str(epoch)+'.pkl') 
- 
-        if epoch%50==0:
-            plot_u(model_u_old,model_u_new, epoch,points, elements,XY)
-            
-        lamda = lamda_temp
-        if epoch%1000000==0:
-                gamma = gamma/1.03
-#            if bound<= bound_temp* 0.95:
-#                beta = beta*1.
-#                bound_temp = bound 
-#            else:
-#                lamda = lamda/1.0
- 
-    import json
+        if epoch%lr_adjust_step==1:
+            optimizer = optim.Adam(paramsw+paramsp, lr=lr) # 实例化求解器
+            lr = lr-delta_lr
 
+        if epoch%50==0:
+            torch.save(model_u.state_dict(), 'netsave/u_net_params_at_epochs'+str(epoch)+'.pkl') 
+            torch.save(model_p.state_dict(), 'netsave/p_net_params_at_epochs'+str(epoch)+'.pkl') 
+            torch.save(model_w.state_dict(), 'netsave/w_net_params_at_epochs'+str(epoch)+'.pkl')  
+            plot_sol_drawer.plot_pressure_along_line(model_p,epoch,device)
+            plot_sol_drawer.plot_velocity_along_line(model_u,epoch,device)
+
+        lamda = lamda_temp
 
     plt.plot(np.array(range(loadepochs, args.epochs)), loss, 'b-', lw=2)
     plt.yscale('log')
     plt.savefig('result_plots/loss'+str(loadepochs)+'to'+str(args.epochs)+'.pdf')
     plt.close()
+    np.save('loss.txt',loss)
 
