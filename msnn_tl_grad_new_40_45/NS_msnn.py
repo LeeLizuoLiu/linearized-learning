@@ -13,7 +13,7 @@ import sys
 sys.path.append("..")
 from utils.utils import FullyConnectedNet,load_mesh,load_pretrained_model,evaluate,plot_contourf_vorticity,DatasetFromTxt,generate_data
 from utils.utils import save_gradient,gradient,Compute_gradient, StatGrad,normalizeGrad,adjustGrad
-
+import logging
 global_nu=0.05
 
 class MultiScaleNet(nn.Module):
@@ -66,7 +66,7 @@ def train(args, model_list, device, interior_train_loader,
         lamda_temp = lamda
 
         if batch_idx % args.log_interval == 0: # 根据设置的显式间隔输出训练日志
-            print('Train Epoch: {:>5d}  [{:>6d}/{} ({:3.0f}%)] Loss of res: {:.6f} Loss of bound: {:.6f}'.format(
+            logging.info('Train Epoch: {:>5d}  [{:>6d}/{} ({:3.0f}%)] Loss of res: {:.6f} Loss of bound: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(interior_train_loader.dataset),
                 100. * batch_idx / len(interior_train_loader), res.item(),bound.item()))
         if batch_idx==0:

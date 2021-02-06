@@ -14,7 +14,7 @@ import torch.nn.functional as F
 import pdb
 import os
 import random
-
+import logging
 def normalizeGrad(model):
     for child in model.children():
         grads = 0 
@@ -134,7 +134,7 @@ def defreeze(model):
 
 
 def load_pretrained_model(NewModel,SavedModelLocation):
-    print("Loading learned subnetworks ...")
+    logging.info("Loading learned subnetworks ...")
     pretrained_dict = torch.load(SavedModelLocation)
     NewModelDict = NewModel.state_dict()
     for name, param in NewModelDict.items():

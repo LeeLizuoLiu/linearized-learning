@@ -17,7 +17,7 @@ import sys
 sys.path.append("..")
 from utils.utils import optimWithExpDecaylr, plot_sol,FullyConnectedNet,load_mesh,load_pretrained_model,evaluate,plot_u,DatasetFromTxt,generate_data_dirichlet,StatGrad,data_generator
 from NS_msnn import MultiScaleNet,train,global_nu
-
+import logging
 
 
 if __name__ == '__main__':
@@ -40,11 +40,18 @@ if __name__ == '__main__':
                         help='random seed (default: 1)')
     parser.add_argument('--log-interval', type=int, default=5, metavar='N',
                         help='how many batches to wait before logging training status')
+    parser.add_argument('--lr-adjust-step', type=int, default=100, metavar='N',
+                        help='how many batches to wait before logging training status')
+    parser.add_argument('--check-step', type=int, default=2, metavar='N',
+                        help='how many batches to wait before logging training status')
+
+
+
     
     args = parser.parse_args()
     filepath =os.path.abspath(os.path.join(os.getcwd(),os.pardir))      
     use_cuda = not args.no_cuda and torch.cuda.is_available() # 根据输入参数和实际cuda的有无决定是否使用GPU
-    print('use cuda:', use_cuda)    
+    print('use cuda:', use_cuda)
     torch.manual_seed(args.seed) # 设置随机种子，保证可重复性
     
     device = torch.device("cuda:0" if use_cuda else "cpu") # 设置使用CPU or GPU
@@ -90,13 +97,19 @@ if __name__ == '__main__':
     bound_temp = 1e12
     coarse_loss = 0
     Loss_reshold =  1e12
-    lr_adjust_step = 100 
+    lr_adjust_step = args.lr_adjust_step
+    check_step = args.check_step
     lr = args.lr
     delta_lr = args.lr/(args.epochs/lr_adjust_step)
     train_data = data_generator(40,45,global_nu)
     plot_sol_drawer = plot_sol(40,45,global_nu)
+    logging.basicConfig(filename='lrstep'+str(lr_adjust_step)+'check'+str(check_step)+'.log', 
+                        filemode='w',
+                        format='%(asctime)s - %(message)s', 
+                        datefmt='%d-%b-%y %H:%M:%S',
+                        level=logging.INFO)
     for epoch in range(loadepochs+1, args.epochs+1): # 循环调用train() and test()进行epoch迭代
-        if  coarse_loss< 3000 and epoch%5==1 :
+        if  coarse_loss< 3000 and epoch%1==0 :
             x_int, inter_target, xlxb, ulub  = train_data.generate(len_inte_data,len_bound_data)
             interior_training_dataset=torch.utils.data.TensorDataset(torch.Tensor(x_int).to(device),torch.Tensor(inter_target).to(device))
             interior_training_data_loader = torch.utils.data.DataLoader(interior_training_dataset, 
@@ -115,7 +128,7 @@ if __name__ == '__main__':
                                                    coarse_data_loader,
                                                    optimizer, epoch, lamda,beta,gamma)
 
-        if epoch%(1)==0 and loss[epoch-1-loadepochs]<0.9*Loss_reshold:
+        if epoch%(check_step)==0 and loss[epoch-1-loadepochs]<0.9*Loss_reshold:
             torch.save(model_u_new.state_dict(), 'netsave/old_u_net_params_at_epochs'+str(epoch)+'.pkl') 
             load_pretrained_model(model_u_old, 'netsave/old_u_net_params_at_epochs'+str(epoch)+'.pkl')
             Loss_reshold = loss[epoch-1-loadepochs]
@@ -138,4 +151,4 @@ if __name__ == '__main__':
     plt.savefig('result_plots/loss'+str(loadepochs)+'to'+str(args.epochs)+'.pdf')
     plt.close()
 
-    np.save('loss.txt',loss)
+    np.save('loss',loss)

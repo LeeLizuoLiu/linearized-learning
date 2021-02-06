@@ -13,3 +13,4 @@ Verification/
 .ipynb_checkpoints/
 *.pdf
 *.out
+*.log
