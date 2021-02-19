@@ -17,7 +17,7 @@ import sys
 sys.path.append("..")
 from utils.utils import optimWithExpDecaylr, plot_sol,FullyConnectedNet,load_mesh,load_pretrained_model,evaluate,plot_u,DatasetFromTxt,generate_data_dirichlet,StatGrad,data_generator
 from NS_msnn import MultiScaleNet,train,global_nu
-
+import logging
 
 
 if __name__ == '__main__':
@@ -40,7 +40,11 @@ if __name__ == '__main__':
                         help='random seed (default: 1)')
     parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                         help='how many batches to wait before logging training status')
-    
+    parser.add_argument('--lr-adjust-step', type=int, default=1000, metavar='N',
+                        help='how many batches to wait before logging training status')
+    parser.add_argument('--check-step', type=int, default=2, metavar='N',
+                        help='how many batches to wait before logging training status')
+   
     args = parser.parse_args()
     filepath =os.path.abspath(os.path.join(os.getcwd(),os.pardir))      
     use_cuda = not args.no_cuda and torch.cuda.is_available() # 根据输入参数和实际cuda的有无决定是否使用GPU
@@ -70,7 +74,7 @@ if __name__ == '__main__':
     
     paramsw = list(model_u_new.parameters())
     paramsp = list(model_p.parameters())
-    optimizer_u = optim.Adam(paramsw, lr=args.lr) # 实例化求解器
+    optimizer_u = optim.Adam(paramsw, lr=2*args.lr) # 实例化求解器
     optimizer_p = optim.Adam(paramsp, lr=args.lr) # 实例化求解器
 
 
@@ -92,11 +96,17 @@ if __name__ == '__main__':
     bound_temp = 1e12
     coarse_loss = 0
     Loss_reshold =  1e12
-    lr_adjust_step = 50
+    lr_adjust_step = args.lr_adjust_step
+    check_step = args.check_step   
     lr = args.lr
     delta_lr = args.lr/(args.epochs/lr_adjust_step)
     train_data = data_generator(40,45,global_nu)
     plot_sol_drawer = plot_sol(40,45,global_nu)
+    logging.basicConfig(filename='lrstep'+str(lr_adjust_step)+'check'+str(check_step)+'.log', 
+                        filemode='w',
+                        format='%(asctime)s - %(message)s', 
+                        datefmt='%d-%b-%y %H:%M:%S',
+                        level=logging.INFO) 
     for epoch in range(loadepochs+1, args.epochs+1): # 循环调用train() and test()进行epoch迭代
         if  coarse_loss< 3000 and epoch%5==1 :
             x_int, inter_target, xlxb, ulub  = train_data.generate(len_inte_data,len_bound_data)
@@ -123,7 +133,7 @@ if __name__ == '__main__':
             torch.save(model_p.state_dict(), 'netsave/p_net_params_at_epochs'+str(epoch)+'.pkl') 
             beta = 1.
         if epoch%lr_adjust_step==1:
-            optimizer_u = optim.Adam(paramsw, lr=lr) # 实例化求解器
+            optimizer_u = optim.Adam(paramsw, lr=2*lr) # 实例化求解器
             optimizer_p = optim.Adam(paramsp, lr=lr) # 实例化求解器
             lr = lr - delta_lr
 
