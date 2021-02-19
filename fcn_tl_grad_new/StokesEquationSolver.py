@@ -40,7 +40,7 @@ if __name__ == '__main__':
                         help='random seed (default: 1)')
     parser.add_argument('--log-interval', type=int, default=5, metavar='N',
                         help='how many batches to wait before logging training status')
-    
+
     args = parser.parse_args()
     filepath =os.path.abspath(os.path.join(os.getcwd(),os.pardir))      
     use_cuda = not args.no_cuda and torch.cuda.is_available() # 根据输入参数和实际cuda的有无决定是否使用GPU
