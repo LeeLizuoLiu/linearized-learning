@@ -56,12 +56,12 @@ if __name__ == '__main__':
     
     kwargs = {'num_workers': 0, 'pin_memory': False} if use_cuda else {} # 设置数据加载的子进程数；是否返回之前将张量复制到cuda的页锁定内存
     
-    nNeuron=128
+    nNeuron=128*8
     nb_head = 18
     
-    model_u_old =MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
+    model_u_old =FullyConnectedNet(2,nNeuron,2).to(device)	# 实例化自定义网络模型
     model_p = FullyConnectedNet(2,nNeuron,1).to(device)	# 实例化自定义网络模型
-    model_u_new = MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
+    model_u_new =FullyConnectedNet(2,nNeuron,2).to(device)	# 实例化自定义网络模型
     
     loadepochs=0
 
