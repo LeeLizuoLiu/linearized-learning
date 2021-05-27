@@ -51,14 +51,14 @@ if __name__ == '__main__':
     use_cuda = not args.no_cuda and torch.cuda.is_available() # 根据输入参数和实际cuda的有无决定是否使用GPU
     print('use cuda:', use_cuda)    
     torch.manual_seed(args.seed) # 设置随机种子，保证可重复性
-    
+    np.random.seed(2**20)
     device = torch.device("cuda:0" if use_cuda else "cpu") # 设置使用CPU or GPU
     
     kwargs = {'num_workers': 0, 'pin_memory': False} if use_cuda else {} # 设置数据加载的子进程数；是否返回之前将张量复制到cuda的页锁定内存
     
-    nNeuron=128*8
+    nNeuron=128
     nb_head = 18
-
+    
     model_u_old =MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
     model_p = FullyConnectedNet(2,nNeuron,1).to(device)	# 实例化自定义网络模型
     model_u_new = MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
@@ -99,8 +99,8 @@ if __name__ == '__main__':
     check_step = args.check_step
     lr = args.lr
     delta_lr = args.lr/(args.epochs/lr_adjust_step)
-    train_data = data_generator(40,45,global_nu)
-    plot_sol_drawer = plot_sol(40,45,global_nu)
+    train_data = data_generator(40,35,global_nu)
+    plot_sol_drawer = plot_sol(40,35,global_nu)
     logging.basicConfig(filename='lrstep'+str(lr_adjust_step)+'check'+str(check_step)+'.log', 
                         filemode='w',
                         format='%(asctime)s - %(message)s', 

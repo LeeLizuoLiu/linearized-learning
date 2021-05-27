@@ -56,9 +56,9 @@ if __name__ == '__main__':
     
     kwargs = {'num_workers': 0, 'pin_memory': False} if use_cuda else {} # 设置数据加载的子进程数；是否返回之前将张量复制到cuda的页锁定内存
     
-    nNeuron=128*8
+    nNeuron=128
     nb_head = 18
-
+    
     model_u_old =MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
     model_p = FullyConnectedNet(2,nNeuron,1).to(device)	# 实例化自定义网络模型
     model_u_new = MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
@@ -99,8 +99,8 @@ if __name__ == '__main__':
     check_step = args.check_step
     lr = args.lr
     delta_lr = args.lr/(args.epochs/lr_adjust_step)
-    train_data = data_generator(40,45,global_nu)
-    plot_sol_drawer = plot_sol(40,45,global_nu)
+    train_data = data_generator(40,35,global_nu)
+    plot_sol_drawer = plot_sol(40,35,global_nu)
     logging.basicConfig(filename='lrstep'+str(lr_adjust_step)+'check'+str(check_step)+'.log', 
                         filemode='w',
                         format='%(asctime)s - %(message)s', 

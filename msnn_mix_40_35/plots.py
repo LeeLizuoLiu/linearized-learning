@@ -229,16 +229,15 @@ def plot_velocity_along_line_error(model_u, epoch):
     v_exact=velocity(xy)
     
     plt.figure()
-    plt.plot(X, np.abs(v_exact[:,0]-v1)/np.max(v_exact[:,0]),label='Relative error', lw=1)
+    plt.plot(X, np.abs(v_exact[:,0]-v1)/np.max(v_exact[:,0]),  lw=1)
     plt.xlabel('x',fontsize=14,alpha=1.0)
     plt.ylabel('$v_x$',fontsize=14,alpha=1.0)
     plt.savefig('result_plots/Epoch'+str(epoch)+'error_of_velocity_x_along_line.pdf')
     
     plt.figure()
-    plt.plot(X, np.abs(v_exact[:,1]-v2)/np.max(v_exact[:,1]),label='Relative error', lw=1)
+    plt.plot(X, np.abs(v_exact[:,1]-v2)/np.max(v_exact[:,1]), lw=1)
     plt.xlabel('x',fontsize=14,alpha=1.0)
     plt.ylabel('$v_y$',fontsize=14,alpha=1.0)
-    plt.legend(fontsize=14,loc="upper right")
     plt.savefig('result_plots/Epoch'+str(epoch)+'error_of_velocity_y_along_line.pdf')
     
     
@@ -256,7 +255,7 @@ def plot_pressure_along_line_error(model_p, epoch):
     ftsize=14
     print(np.mean(np.abs(p_exact-p))/np.max(p_exact))
     plt.figure()
-    plt.plot(X, np.abs(p-p_exact)/np.max(p_exact), label='Relative error', lw=1)
+    plt.plot(X, np.abs(p-p_exact)/np.max(p_exact), label='exact', lw=1)
     plt.xlabel('x',fontsize=14,alpha=1.0)
     plt.ylabel('p',fontsize=14,alpha=1.0)
     plt.tick_params(labelsize=ftsize)
@@ -343,7 +342,7 @@ if __name__ == '__main__':
     nNeuron=128
     nb_head = 1
     model_p =FullyConnectedNet(2,nNeuron,1).to(device)	 #FullyConnectedNet(2,nNeuron, 1).to(device)	# 实例化自定义网络模型
-    epoch=1000
+    epoch=959
     model_p.load_state_dict(torch.load('netsave/p_net_params_at_epochs'+str(epoch)+'.pkl'))
     model_u = MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
     model_u.load_state_dict(torch.load('netsave/old_u_net_params_at_epochs'+str(epoch)+'.pkl'))
@@ -354,8 +353,8 @@ if __name__ == '__main__':
 
 #     plot_velocity_error(model_u,  epoch) 
     
-    plot_pressure_along_line_error(model_p, epoch)
-    plot_velocity_along_line_error(model_u, epoch)
+    plot_pressure_along_line(model_p, epoch)
+    plot_velocity_along_line(model_u, epoch)
     
 #     plot_surf_velocity(model_u, epoch)
 #     startepochs=0

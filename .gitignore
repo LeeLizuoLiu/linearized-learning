@@ -14,3 +14,6 @@ Verification/
 *.pdf
 *.out
 *.log
+*/result*
+3d_case/
+flow_past_cylinder/

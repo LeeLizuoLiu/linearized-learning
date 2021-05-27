@@ -325,9 +325,96 @@ def generate_data_dirichlet(int_datasize,nb):
 
     return x_int, inter_target, xb_dirichlet,vel
 
+class data_generator3D():
+    def __init__(self,a,d,nu,seed=2**20):
+        self.r = np.random.RandomState(seed)
+        self.a = a
+        self.d = d
+        self.Re=1.0/nu
+
+    def velocity(self,data):
+        t = data[:,0:1]
+        x = data[:,1:2]
+        y = data[:,2:3]
+        z = data[:,3:4]
+        expt=np.exp(-self.d**2*t)
+        expx=np.exp(self.a*x)
+        expy=np.exp(self.a*y)
+        expz=np.exp(self.a*z)
+        
+        sinyz = np.sin(self.a*y + self.d*z)
+        cosxy = np.cos(self.a*x + self.d*y)
+        sinxz = np.sin(self.a*z + self.d*x)
+        cosyz = np.cos(self.a*y + self.d*z)
+        sinxy = np.sin(self.a*x + self.d*y)
+        cosxz = np.cos(self.a*z + self.d*x)
+
+        u = -self.a * expt * (expx*sinyz+expz*cosxy) 
+        v = -self.a * expt * (expy*sinxz+expx*cosyz) 
+        w = -self.a * expt * (expz*sinxy+expy*cosxz) 
+
+        return np.concatenate((u,v,w), axis=1) 
+
+    def pressure(self,data):
+        t = data[:,0:1]
+        x = data[:,1:2]
+        y = data[:,2:3]
+        z = data[:,3:4]
+        expt=np.exp(-self.d**2*t)
+        expx=np.exp(self.a*x)
+        expy=np.exp(self.a*y)
+        expz=np.exp(self.a*z)
+        
+        sinyz = np.sin(self.a*y + self.d*z)
+        cosxy = np.cos(self.a*x + self.d*y)
+        sinxz = np.sin(self.a*z + self.d*x)
+        cosyz = np.cos(self.a*y + self.d*z)
+        sinxy = np.sin(self.a*x + self.d*y)
+        cosxz = np.cos(self.a*z + self.d*x)
+
+        p = -1/2*self.a**2 * expt**2 * \
+            (expx**2 + expy**2 + expz**2\
+                 + 2*sinxy*cosxz*expy*expz\
+                 + 2*sinyz*cosxy*expx*expz\
+                 + 2*sinxz*cosyz*expx*expy) 
+
+        return p
+
+    def zero(self,x):
+        return np.zeros((len(x), 1))
+
+    def RHS(self,x):
+        return np.zeros_like(x)
+
+    def generate(self,int_datasize,nb):
+
+        n=10*int_datasize
+        x = np.array([[self.r.uniform(0,2) for _ in range(n)],[self.r.uniform(0,1) for _ in range(n)],[self.r.uniform(0, 1) for _ in range(n)],[self.r.uniform(0, 1) for _ in range(n)]]).T
+        x_int = x[0:int_datasize]    
+
+        fdata= self.RHS(x_int)
+        divf=self.zero(x_int)    
+        divu_RHS = self.zero(x_int)
+        inter_target=np.concatenate((fdata, divf, divu_RHS), axis=1)
+
+        # Initial values and boundary values of velocity
+        x_init = np.array([[0]*nb,[self.r.uniform(0,1) for _ in range(nb)],[self.r.uniform(0, 1) for _ in range(nb)],[self.r.uniform(0, 1) for _ in range(nb)]]).T
+        x_term = np.array([[2]*nb,[self.r.uniform(0,1) for _ in range(nb)],[self.r.uniform(0, 1) for _ in range(nb)],[self.r.uniform(0, 1) for _ in range(nb)]]).T
+        x1 = np.array([[self.r.uniform(0,2) for _ in range(nb)],[0]*nb,[self.r.uniform(0, 1) for _ in range(nb)],[self.r.uniform(0, 1) for _ in range(nb)]]).T
+        x2 = np.array([[self.r.uniform(0,2) for _ in range(nb)],[1]*nb,[self.r.uniform(0, 1) for _ in range(nb)],[self.r.uniform(0, 1) for _ in range(nb)]]).T
+        x3 = np.array([[self.r.uniform(0,2) for _ in range(nb)],[self.r.uniform(0, 1) for _ in range(nb)],[0]*nb,[self.r.uniform(0, 1) for _ in range(nb)]]).T
+        x4 = np.array([[self.r.uniform(0,2) for _ in range(nb)],[self.r.uniform(0, 1) for _ in range(nb)],[1]*nb,[self.r.uniform(0, 1) for _ in range(nb)]]).T
+        x5 = np.array([[self.r.uniform(0,2) for _ in range(nb)],[self.r.uniform(0, 1) for _ in range(nb)],[self.r.uniform(0, 1) for _ in range(nb)],[0]*nb]).T
+        x6 = np.array([[self.r.uniform(0,2) for _ in range(nb)],[self.r.uniform(0, 1) for _ in range(nb)],[self.r.uniform(0, 1) for _ in range(nb)],[1]*nb]).T
+
+        xb_dirichlet=np.concatenate((x_init, x_term, x1, x2, x3, x4, x5, x6), axis=0)
+        vel = self.velocity(xb_dirichlet)
+
+        return x_int, inter_target, xb_dirichlet,vel
 
 class data_generator():
-    def __init__(self,m_freq,n_freq,nu):
+    def __init__(self,m_freq,n_freq,nu,seed=2**20):
+        self.r = np.random.RandomState(seed)
         self.m_freq = m_freq
         self.n_freq = n_freq
         self.Re=1.0/nu
@@ -363,12 +450,17 @@ class data_generator():
                     +self.lambda_const*(-4*self.n_freq**2*np.pi**2-self.Re*self.lambda_const+self.lambda_const**2))*sinxy)
 
         return np.concatenate((yb1, yb2), axis=1)
-    def generate(self,int_datasize,nb):
-        n=10*int_datasize
-        x = np.array([[random.uniform(0,2) for _ in range(n)],[random.uniform(0, 1) for _ in range(n)]]).T
+    def generate(self,int_datasize,nb,seed=2**20):
 
-        centers=np.array([0.7, 0.5])
-        x=x[(x[:,0]-centers[0])**2+(x[:,1]-centers[1])**2>0.04]
+        n=10*int_datasize
+        x = np.array([[self.r.uniform(0,2) for _ in range(n)],[self.r.uniform(0, 1) for _ in range(n)]]).T
+
+        centers=np.array([[0.7, 0.5],[0.3,0.3],[1.2,0.9],[1.7,0.33],[1.5,0.53]])
+        x=x[(x[:,0]-centers[0,0])**2+(x[:,1]-centers[0,1])**2>0.2**2]
+        x=x[(x[:,0]-centers[1,0])**2+(x[:,1]-centers[1,1])**2>0.1**2]
+        x=x[(x[:,0]-centers[2,0])**2+(x[:,1]-centers[2,1])**2>0.05**2]
+        x=x[(x[:,0]-centers[3,0])**2+(x[:,1]-centers[3,1])**2>0.15**2]
+        x=x[(x[:,0]-centers[4,0])**2+(x[:,1]-centers[4,1])**2>0.1**2]
         x_int = x[0:int_datasize]    
 
         fdata= self.RHS(x_int)
@@ -377,13 +469,13 @@ class data_generator():
         inter_target=np.concatenate((fdata, divf, divu_RHS), axis=1)
 
         # boundary values of velocity
-        xb1=np.array([[random.uniform(0,2) for _ in range(nb)],[0]*nb]).T
-        xb2=np.array([[random.uniform(0,2) for _ in range(nb)],[1]*nb]).T
+        xb1=np.array([[self.r.uniform(0,2) for _ in range(nb)],[0]*nb]).T
+        xb2=np.array([[self.r.uniform(0,2) for _ in range(nb)],[1]*nb]).T
 
-        xb3=np.array([[0]*nb, [random.uniform(0,1) for _ in range(nb)]]).T
-        xb4=np.array([[2]*nb, [random.uniform(0,1) for _ in range(nb)]]).T
+        xb3=np.array([[0]*nb, [self.r.uniform(0,1) for _ in range(nb)]]).T
+        xb4=np.array([[2]*nb, [self.r.uniform(0,1) for _ in range(nb)]]).T
 
-        theta=np.array([random.uniform(0,2.0*np.pi) for _ in range(nb)])
+        theta=np.array([self.r.uniform(0,2.0*np.pi) for _ in range(nb)])
         r = 0.2
         xbcirc=np.array([r*np.cos(theta), r*np.sin(theta)]).T
 
@@ -391,6 +483,47 @@ class data_generator():
         vel = self.velocity(xb_dirichlet)
 
         return x_int, inter_target, xb_dirichlet,vel
+
+class data_generator_FPC():
+    def __init__(self,nu,seed=2**20):
+        self.r = np.random.RandomState(seed)
+    
+    def f(self,x):
+        z=np.zeros_like(x)
+        z[:,0] = 0.02
+        return z
+    
+    def div_f(self,x):
+        return np.zeros((len(x), 1))
+
+    def generate(self,int_datasize,nb):
+        n=10*int_datasize
+        x = np.array([[random.uniform(-2.5,6.5) for _ in range(n)],[random.uniform(-1.5, 1.5) for _ in range(n)]]).T
+        
+        centers=np.array([0.0, 0.0])
+        x=x[(x[:,0]-centers[0])**2+(x[:,1]-centers[1])**2>0.25]
+        x_int = x[0:int_datasize]    
+        
+        fdata= self.f(x_int)
+        divf=self.div_f(x_int)    
+        divu_RHS = self.div_f(x_int)
+        inter_target=np.concatenate((fdata, divf, divu_RHS), axis=1)
+        
+        # boundary values of velocity
+        xb1=np.array([[self.r.uniform(-2.5,6.5) for _ in range(nb)],[-1.5]*nb]).T
+        xb2=np.array([[self.r.uniform(-2.5,6.5) for _ in range(nb)],[ 1.5]*nb]).T
+        theta=np.array([self.r.uniform(0,2.0*np.pi) for _ in range(nb)])
+        r = 0.5
+        xbcirc=np.array([r*np.cos(theta), r*np.sin(theta)]).T
+            
+        xb_dirichlet=np.concatenate((xb1, xb2, xbcirc), axis=0)
+        ub=np.zeros_like(xb_dirichlet)
+
+        xlr_y =  [self.r.uniform(-1.5,1.5) for _ in range(nb)]
+        xl_periodic=np.array([[-2.5]*nb, xlr_y]).T
+        xr_periodic=np.array([[ 6.5]*nb, xlr_y]).T
+    
+        return x_int, inter_target, xb_dirichlet, ub, xl_periodic,xr_periodic 
 
 
 def genData_test(int_datasize,nb):
@@ -468,7 +601,7 @@ def genData_bhd(int_datasize,nb):
 
 def generate_data(int_datasize,nb):
     n=10*int_datasize
-    x = np.array([[random.uniform(-2.5,3.5) for _ in range(n)],[random.uniform(-1.5, 1.5) for _ in range(n)]]).T
+    x = np.array([[random.uniform(-2.5,6.5) for _ in range(n)],[random.uniform(-1.5, 1.5) for _ in range(n)]]).T
     
     centers=np.array([0.0, 0.0])
     x=x[(x[:,0]-centers[0])**2+(x[:,1]-centers[1])**2>0.25]
@@ -480,11 +613,11 @@ def generate_data(int_datasize,nb):
     inter_target=np.concatenate((fdata, divf, divu_RHS), axis=1)
     
     # boundary values of velocity
-    xb1=np.array([[random.uniform(-2.5,3.5) for _ in range(nb)],[-1.5]*nb]).T
-    xb2=np.array([[random.uniform(-2.5,3.5) for _ in range(nb)],[ 1.5]*nb]).T
+    xb1=np.array([[random.uniform(-2.5,6.5) for _ in range(nb)],[-1.5]*nb]).T
+    xb2=np.array([[random.uniform(-2.5,6.5) for _ in range(nb)],[ 1.5]*nb]).T
 
     xb3=np.array([[-2.5]*nb, [random.uniform(-1.5,1.5) for _ in range(nb)]]).T
-    xb4=np.array([[ 3.5]*nb, [random.uniform(-1.5,1.5) for _ in range(nb)]]).T
+    xb4=np.array([[ 6.5]*nb, [random.uniform(-1.5,1.5) for _ in range(nb)]]).T
         
     theta=np.array([random.uniform(0,2.0*np.pi) for _ in range(nb)])
     r = 0.5
@@ -494,7 +627,7 @@ def generate_data(int_datasize,nb):
 
     xl_dirichlet = xb3
     ul = np.zeros_like(xl_dirichlet)
-    ul[:,0] = 10*(np.cos(10*np.pi*xl_dirichlet[:,1])+1)
+    ul[:,0] = (1.5+xb3[:,1])*(1.5-xb3[:,1]) 
 
     ub=np.zeros_like(xb_dirichlet)
     xlxb=np.concatenate((xl_dirichlet,xb_dirichlet),axis=0)

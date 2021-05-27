@@ -5,14 +5,13 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.tri as tri
 # from mayavi import mlab
-
 import os
 import torch
 from torch import nn
 from torch.autograd import Variable
 import torch.nn.functional as F
 import torch.optim as optim	                  # 实现各种优化算法的包
-import pdb
+
 #from gpu_memory_log import gpu_memory_log
 sys.path.append("..")
 from utils.utils import FullyConnectedNet,load_mesh,load_pretrained_model,evaluate,plot_contourf_vorticity,DatasetFromTxt,generate_data_dirichlet,StatGrad,data_generator
@@ -132,34 +131,40 @@ def plot_surf_velocity(model_u, epoch):
     ax.patch.set_alpha(1.0)
     plt.savefig('result_plots/Epoch'+str(epoch)+'velocity_y.pdf')
     
-
-def plot_u(model_u,model_p, epoch, points,elements,XY):
+def plot_contourf_velocity(model_u, epoch):
+    points, elements = load_mesh("mesh_file_1.dat")
     x, y = points.T
     triangulation = tri.Triangulation(x, y, elements)
+    v1=np.zeros(len(x))
+    v2=np.zeros(len(x))
     
-    velocity_new = model_u(XY)
-
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
-    ax = Axes3D(fig)
-    ax.plot_trisurf(triangulation, velocity_new[:,0].cpu().data.numpy(), cmap='rainbow')
-    ax.patch.set_alpha(1.0)
-    fig.savefig('result_plots/msnn_velocity_contour.png',dpi=1000)
-    plt.close()
-
-    p = model_p(XY).cpu().data.numpy()
-    p_exact = pressure(XY.cpu().data.numpy())
-    dp = p[0,0] - p_exact[0,0]
-    p = p - dp
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
-    tcf = ax.tricontourf(triangulation, p[:,0], cmap='rainbow',levels=30,vmax=0.5,vmin=0.)
-    fig.colorbar(tcf)
-    ax.tricontour(triangulation,p[:,0],colors='k',levels=30,linewidths=0.3)
-    ax.axis('equal')
-    fig.savefig('result_plots/msnn_pressure_contour.png',dpi=300)
-    plt.close()
-
+    p=0
+    jump=1000
+    while p+jump<=len(x):
+        XY=Variable(torch.tensor(points[p:p+jump, :]),requires_grad=False).to(device)
+        velocity_on_gpu=model_u(XY)
+        v1[p:p+jump] = velocity_on_gpu[:, 0].cpu().data.numpy()
+        v2[p:p+jump] = velocity_on_gpu[:, 1].cpu().data.numpy()   
+        p=p+jump
+    XY=Variable(torch.tensor(points[p:, :]),requires_grad=False).to(device)
+    velocity_on_gpu=model_u(XY)
+    v1[p:] = velocity_on_gpu[:, 0].cpu().data.numpy()
+    v2[p:] = velocity_on_gpu[:, 1].cpu().data.numpy()   
+    
+    plt.figure()
+    plt.tricontourf(triangulation, v1, cmap='rainbow', rasterized=True, bbox_inches='tight')
+    plt.axis('equal')
+    plt.xlabel('x',fontsize=14,alpha=1.0)
+    plt.ylabel('y',fontsize=14,alpha=1.0)
+    plt.savefig('result_plots/Epoch'+str(epoch)+'velocity_x_contour.pdf')
+    
+    plt.figure()
+    plt.tricontourf(triangulation, v2, cmap='rainbow', rasterized=True, bbox_inches='tight')
+    plt.axis('equal')
+    plt.xlabel('x',fontsize=14,alpha=1.0)
+    plt.ylabel('y',fontsize=14,alpha=1.0)
+    plt.savefig('result_plots/Epoch'+str(epoch)+'velocity_y_contour.pdf')
+    
 def plot_velocity_along_line(model_u, epoch):
     X = np.arange(   0.0,   2.0, 0.0002).astype(np.float32)
     Y = np.array([0.7]*len(X)).astype(np.float32)
@@ -229,16 +234,15 @@ def plot_velocity_along_line_error(model_u, epoch):
     v_exact=velocity(xy)
     
     plt.figure()
-    plt.plot(X, np.abs(v_exact[:,0]-v1)/np.max(v_exact[:,0]),label='Relative error', lw=1)
+    plt.plot(X, np.abs(v_exact[:,0]-v1)/np.max(v_exact[:,0]),  lw=1)
     plt.xlabel('x',fontsize=14,alpha=1.0)
     plt.ylabel('$v_x$',fontsize=14,alpha=1.0)
     plt.savefig('result_plots/Epoch'+str(epoch)+'error_of_velocity_x_along_line.pdf')
     
     plt.figure()
-    plt.plot(X, np.abs(v_exact[:,1]-v2)/np.max(v_exact[:,1]),label='Relative error', lw=1)
+    plt.plot(X, np.abs(v_exact[:,1]-v2)/np.max(v_exact[:,1]), lw=1)
     plt.xlabel('x',fontsize=14,alpha=1.0)
     plt.ylabel('$v_y$',fontsize=14,alpha=1.0)
-    plt.legend(fontsize=14,loc="upper right")
     plt.savefig('result_plots/Epoch'+str(epoch)+'error_of_velocity_y_along_line.pdf')
     
     
@@ -256,7 +260,7 @@ def plot_pressure_along_line_error(model_p, epoch):
     ftsize=14
     print(np.mean(np.abs(p_exact-p))/np.max(p_exact))
     plt.figure()
-    plt.plot(X, np.abs(p-p_exact)/np.max(p_exact), label='Relative error', lw=1)
+    plt.plot(X, np.abs(p-p_exact)/np.max(p_exact), label='exact', lw=1)
     plt.xlabel('x',fontsize=14,alpha=1.0)
     plt.ylabel('p',fontsize=14,alpha=1.0)
     plt.tick_params(labelsize=ftsize)
@@ -286,6 +290,32 @@ def test(args, model_u, model_p, device, test_loader):
     print('\nTest set: l^2 error of pressure on test points: {:.8f}\n'.format(p_test_err))
     return u_test_err, p_test_err
 
+def plot_u(model_u,model_p, epoch, points,elements,XY):
+    x, y = points.T
+    triangulation = tri.Triangulation(x, y, elements)
+    
+    velocity_new = model_u(XY)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    ax = Axes3D(fig)
+    ax.plot_trisurf(triangulation, velocity_new[:,0].cpu().data.numpy(), cmap='rainbow')
+    ax.patch.set_alpha(1.0)
+    fig.savefig('result_plots/msnn_velocity_contour.png',dpi=1000)
+    plt.close()
+
+    p = model_p(XY).cpu().data.numpy()
+    p_exact = pressure(XY.cpu().data.numpy())
+    dp = p[0,0] - p_exact[0,0]
+    p = p - dp
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    tcf = ax.tricontourf(triangulation, p[:,0], cmap='rainbow',levels=30,vmax=0.5,vmin=0.)
+    fig.colorbar(tcf)
+    ax.tricontour(triangulation,p[:,0],colors='k',levels=30,linewidths=0.3)
+    ax.axis('equal')
+    fig.savefig('result_plots/msnn_pressure_contour.png',dpi=300)
+    plt.close()
 
 # if __name__ == '__main__':
     
@@ -338,12 +368,11 @@ def test(args, model_u, model_p, device, test_loader):
     
     
 if __name__ == '__main__':
-    
     device = torch.device("cuda") # 设置使用CPU or GPU
     nNeuron=128
     nb_head = 1
     model_p =FullyConnectedNet(2,nNeuron,1).to(device)	 #FullyConnectedNet(2,nNeuron, 1).to(device)	# 实例化自定义网络模型
-    epoch=1000
+    epoch=956
     model_p.load_state_dict(torch.load('netsave/p_net_params_at_epochs'+str(epoch)+'.pkl'))
     model_u = MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
     model_u.load_state_dict(torch.load('netsave/old_u_net_params_at_epochs'+str(epoch)+'.pkl'))
@@ -354,10 +383,13 @@ if __name__ == '__main__':
 
 #     plot_velocity_error(model_u,  epoch) 
     
-    plot_pressure_along_line_error(model_p, epoch)
-    plot_velocity_along_line_error(model_u, epoch)
+    plot_pressure_along_line(model_p, epoch)
+    plot_velocity_along_line(model_u, epoch)   
+ 
+#     plot_velocity_error(model_u,  epoch) 
     
-#     plot_surf_velocity(model_u, epoch)
+#    plot_pressure_along_line_error(model_p, epoch)
+#    plot_velocity_along_line_error(model_u, epoch)
 #     startepochs=0
 #     endepochs=1500
 #     l2err_u=np.loadtxt('result_plots/l2error_of_velocity'+str(startepochs)+'to'+str(endepochs)+'.txt', np.float32)
