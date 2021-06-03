@@ -11,7 +11,7 @@ import torch
 from torch import nn
 from torch.autograd import Variable
 import torch.nn.functional as F
-import torch.optim as optim	                  # 实现各种优化算法的包
+import torch.optim as optim	                  
 import pdb
 #from gpu_memory_log import gpu_memory_log
 sys.path.append("..")
@@ -263,12 +263,12 @@ def plot_pressure_along_line_error(model_p, epoch):
     plt.savefig('result_plots/Epoch'+str(epoch)+'error_of_pressure_x_along_line.pdf')
  
 def test(args, model_u, model_p, device, test_loader):
-    model_u.eval()          # 必备，将模型设置为评估模式
-    model_p.eval()          # 必备，将模型设置为评估模式
+    model_u.eval()          # setting model to eval mode
+    model_p.eval()          
     u_test_err = 0
     p_test_err = 0
-    with torch.no_grad(): # 禁用梯度计算
-        for data, target in test_loader: # 从数据加载器迭代一个batch的数据
+    with torch.no_grad(): # The gradients computation will be banned.
+        for data, target in test_loader: 
             data  =Variable(  data, requires_grad=True ).to(device)
             target=Variable(target, requires_grad=False).to(device)
             u_output = model_u(data)
@@ -308,16 +308,15 @@ def test(args, model_u, model_p, device, test_loader):
     
 #     args = parser.parse_args()
     
-#     use_cuda = not args.no_cuda and torch.cuda.is_available() # 根据输入参数和实际cuda的有无决定是否使用GPU
+#     use_cuda = not args.no_cuda and torch.cuda.is_available()
 
-#     torch.manual_seed(args.seed) # 设置随机种子，保证可重复性
+#     torch.manual_seed(args.seed) 
+#     device = torch.device("cuda" if use_cuda else "cpu")
 
-#     device = torch.device("cuda" if use_cuda else "cpu") # 设置使用CPU or GPU
-
-#     kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {} # 设置数据加载的子进程数；是否返回之前将张量复制到cuda的页锁定内存
+#     kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {} 
     
 #     nNeuron=50
-#     model_u = MultiScaleNet(9, 2, nNeuron, 2).to(device)	# 实例化自定义网络模型
+#     model_u = MultiScaleNet(9, 2, nNeuron, 2).to(device)	
 #     model_p = FullyConnectedNet(phi3, 2, nNeuron, 1).to(device)
 #     test_dataset=DatasetFromTxt('test_data.dat')
     
@@ -338,13 +337,13 @@ def test(args, model_u, model_p, device, test_loader):
     
 if __name__ == '__main__':
     
-    device = torch.device("cuda") # 设置使用CPU or GPU
+    device = torch.device("cuda") # setting to use GPU
     nNeuron=128
     nb_head = 1
-    model_p =FullyConnectedNet(2,nNeuron,1).to(device)	 #FullyConnectedNet(2,nNeuron, 1).to(device)	# 实例化自定义网络模型
+    model_p =FullyConnectedNet(2,nNeuron,1).to(device)	 #FullyConnectedNet(2,nNeuron, 1).to(device)
     epoch=959
     model_p.load_state_dict(torch.load('netsave/p_net_params_at_epochs'+str(epoch)+'.pkl'))
-    model_u = MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
+    model_u = MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)
     model_u.load_state_dict(torch.load('netsave/old_u_net_params_at_epochs'+str(epoch)+'.pkl'))
     filepath =os.path.abspath(os.path.join(os.getcwd(),os.pardir))
     points, elements = load_mesh(filepath+"/Data/mesh_file.dat")
