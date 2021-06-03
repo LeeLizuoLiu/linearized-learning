@@ -6,7 +6,7 @@ import torch
 from torch import nn
 from torch.autograd import Variable
 import torch.nn.functional as F
-import torch.optim as optim	                  # 实现各种优化算法的包
+import torch.optim as optim	                  
 import pdb
 import os
 import sys
@@ -46,11 +46,11 @@ class MultiScaleNet(nn.Module):
 
 def train(args, model_list, device, interior_train_loader, 
           dirichlet_bdry_training_data_loader, coarse_data_loader,
-          optimizer, epoch,lamda,beta,gamma): # 还可添加loss_func等参数
+          optimizer, epoch,lamda,beta,gamma): 
     retloss=[]
     bdryiter= iter(dirichlet_bdry_training_data_loader)
     coarseiter = iter(coarse_data_loader)
-    for batch_idx, (data, target) in enumerate(interior_train_loader):   # 从数据加载器迭代一个batch的数据
+    for batch_idx, (data, target) in enumerate(interior_train_loader):   # iterate a batch of data from the DataLoader
         x        =Variable(data,           requires_grad=True )     
         f        =Variable(target[:, 0:2], requires_grad=False)
         divf     =Variable(target[:,   2], requires_grad=False)
@@ -65,7 +65,7 @@ def train(args, model_list, device, interior_train_loader,
         optimizer.step()
         lamda_temp = lamda
 
-        if batch_idx % args.log_interval == 0: # 根据设置的显式间隔输出训练日志
+        if batch_idx % args.log_interval == 0: # output logs
             logging.info('Train Epoch: {:>5d}  [{:>6d}/{} ({:3.0f}%)] Loss of res: {:.6f} Loss of bound: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(interior_train_loader.dataset),
                 100. * batch_idx / len(interior_train_loader), res.item(),bound.item()))
@@ -124,7 +124,7 @@ def ResLoss_upw(x,bdry_x,f,divu_RHS,divf,bdry_velocity,beta,lamda,model_list,epo
     loss6 = loss_function(div_grad_p,divf)
   
     res = (loss1 + loss2)  + loss5 + loss6
-    bound = (loss4)              # 调用损失函数计算损失
+    bound = (loss4)              
     loss = beta * res + lamda * bound 
     
     return loss,res,bound
