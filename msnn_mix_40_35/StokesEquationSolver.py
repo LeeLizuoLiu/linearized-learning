@@ -10,7 +10,7 @@ import torch
 from torch import nn
 from torch.autograd import Variable
 import torch.nn.functional as F
-import torch.optim as optim	                  # 实现各种优化算法的包
+import torch.optim as optim	                  
 import pdb
 import os
 import sys
@@ -48,20 +48,20 @@ if __name__ == '__main__':
    
     args = parser.parse_args()
     filepath =os.path.abspath(os.path.join(os.getcwd(),os.pardir))      
-    use_cuda = not args.no_cuda and torch.cuda.is_available() # 根据输入参数和实际cuda的有无决定是否使用GPU
+    use_cuda = not args.no_cuda and torch.cuda.is_available() # determine to use GPU or not
     print('use cuda:', use_cuda)    
-    torch.manual_seed(args.seed) # 设置随机种子，保证可重复性
+    torch.manual_seed(args.seed) # setting random seeds
     
-    device = torch.device("cuda:0" if use_cuda else "cpu") # 设置使用CPU or GPU
+    device = torch.device("cuda:0" if use_cuda else "cpu") # using gpu
     
-    kwargs = {'num_workers': 0, 'pin_memory': False} if use_cuda else {} # 设置数据加载的子进程数；是否返回之前将张量复制到cuda的页锁定内存
+    kwargs = {'num_workers': 0, 'pin_memory': False} if use_cuda else {}
     
     nNeuron=128
     nb_head = 18
     
-    model_u_old =MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
-    model_p = FullyConnectedNet(2,nNeuron,1).to(device)	# 实例化自定义网络模型
-    model_u_new = MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# 实例化自定义网络模型
+    model_u_old =MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# mscalenn for u_tmp
+    model_p = FullyConnectedNet(2,nNeuron,1).to(device)	# mscalenn for pressure
+    model_u_new = MultiScaleNet(2, 2, hidden_size= nNeuron,nb_heads=nb_head).to(device)	# mscalenn_for u
     
     loadepochs=0
 
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     
     paramsw = list(model_u_new.parameters())
     paramsp = list(model_p.parameters())
-    optimizer = optim.Adam(paramsw+paramsp, lr=args.lr) # 实例化求解器
+    optimizer = optim.Adam(paramsw+paramsp, lr=args.lr)
 
     model_list=[model_u_old,model_u_new,model_p]  
     
@@ -106,7 +106,7 @@ if __name__ == '__main__':
                         format='%(asctime)s - %(message)s', 
                         datefmt='%d-%b-%y %H:%M:%S',
                         level=logging.INFO) 
-    for epoch in range(loadepochs+1, args.epochs+1): # 循环调用train() and test()进行epoch迭代
+    for epoch in range(loadepochs+1, args.epochs+1): # train the neural network
         if  coarse_loss< 3000 and epoch%1==0 :
             x_int, inter_target, xlxb, ulub  = train_data.generate(len_inte_data,len_bound_data)
             interior_training_dataset=torch.utils.data.TensorDataset(torch.Tensor(x_int).to(device),torch.Tensor(inter_target).to(device))
@@ -139,7 +139,7 @@ if __name__ == '__main__':
             torch.save(model_p.state_dict(), 'netsave/p_net_params_at_epochs'+str(epoch)+'.pkl') 
 
         if epoch%lr_adjust_step==1:
-            optimizer = optim.Adam(paramsw+paramsp, lr=lr) # 实例化求解器
+            optimizer = optim.Adam(paramsw+paramsp, lr=lr) 
             lr = lr - delta_lr
            
 
