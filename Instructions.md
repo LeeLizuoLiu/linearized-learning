@@ -5,3 +5,6 @@ To start training run
 
 The data generation process is concluded in the `utils.utils.data_generator`, which will be run for every training epoch.
 
+In the `NS_msnn.py`, there are several functions & class used during the whole training process, Like `train` function and the neural network class `MultiScaleNet`.
+
+In the `plots.py`, you could plot the outputs for specific epoch.
