@@ -15,6 +15,8 @@ import pdb
 import os
 import random
 import logging
+
+# Several Help Functions
 def normalizeGrad(model):
     for child in model.children():
         grads = 0 
@@ -78,7 +80,12 @@ def compute_lamda(res, bound):
     lamda  = torch.mean(torch.abs(res))/torch.mean(torch.abs(bound))
     return lamda
 
+
+
 def evaluate(model_u,device,epoch):
+    """
+    Evaluations and Plot the predictions
+    """
     filepath =os.path.abspath(os.path.join(os.getcwd(),os.pardir))
     if os.path.isfile(filepath+'/Data/velocity_x@__57.txt'):
        yu = np.loadtxt(filepath+'/Data/velocity_x@__57.txt').astype(np.float32)
@@ -111,6 +118,9 @@ def check_layers(model):
             j = j+1
 
 def freeze(model):
+    """
+    Freeze learned net
+    """
     print("Freezing the learned subnetworks ...")
     cntr = 1
     total = 20 
@@ -122,6 +132,9 @@ def freeze(model):
         cntr +=1
 
 def defreeze(model):
+    """
+    Defreeze the learned net and the net will be optimized during training process
+    """
     print("Defreezing the learned subnetworks ...")
     cntr = 1
     total = 20 
@@ -327,6 +340,9 @@ def generate_data_dirichlet(int_datasize,nb):
 
 class data_generator3D():
     def __init__(self,a,d,nu,seed=2**20):
+        """
+        The 3d case from Wikipedia with closed-form solution
+        """
         self.r = np.random.RandomState(seed)
         self.a = a
         self.d = d
@@ -414,6 +430,9 @@ class data_generator3D():
 
 class data_generator():
     def __init__(self,m_freq,n_freq,nu,seed=2**20):
+        """
+        2D case used in the paper
+        """
         self.r = np.random.RandomState(seed)
         self.m_freq = m_freq
         self.n_freq = n_freq
@@ -486,6 +505,10 @@ class data_generator():
 
 class data_generator_FPC():
     def __init__(self,nu,seed=2**20):
+        
+        """
+        Data generator for the Flow Passing Cylinder case
+        """
         self.r = np.random.RandomState(seed)
     
     def f(self,x):
@@ -640,6 +663,9 @@ def generate_data(int_datasize,nb):
 
 class MultiScaleNet(nn.Module):
     def __init__(self, input_dim, output_dim, hidden_size = 32, nb_heads=1):
+        """
+        MSNN written by conv1d
+        """
         super(MultiScaleNet, self).__init__()
         self.network = nn.Sequential(
             nn.Conv1d(in_channels=input_dim * nb_heads, out_channels=hidden_size * nb_heads, kernel_size=1, groups=nb_heads),
@@ -665,7 +691,9 @@ class MultiScaleNet(nn.Module):
 class MultiHeadNaive(nn.Module):
     def __init__(self, input_dim, output_dim, hidden_size=32, nb_heads=1):
         super().__init__()
-
+        """
+        MSNN written by for-loop and nn.Squential
+        """
         self.networks = nn.ModuleList()
         for _ in range(nb_heads):
             network = nn.Sequential(
@@ -709,6 +737,9 @@ class MultiScaleNet_Series(nn.Module):
 
 class plot_sol():
     def __init__(self,m,n,global_nu):
+        """
+        Class to plot solutions
+        """
         super(plot_sol).__init__()
         self.Exact_solution = data_generator(m,n,global_nu)   
  
@@ -765,6 +796,7 @@ class plot_sol():
         plt.close()
         np.savetxt('result_plots/exact_pressure'+'.txt', p_exact, fmt="%f", delimiter=",")
         np.savetxt('result_plots/MSDNN_VGVP_pressure'+str(epoch)+'.txt', p, fmt="%f", delimiter=",")
+        
 
 def optimWithExpDecaylr(epochs,step,lr,parameters,minimum_lr = 1e-6):
     delta_lr = np.exp(np.log(minimum_lr/lr)/(epochs//step))
